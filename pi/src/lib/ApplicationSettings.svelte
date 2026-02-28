@@ -40,14 +40,14 @@
 
 {#if $globalSettings.error}
 	<div
-		class="mb-3 rounded border border-red-700 bg-red-900/30 p-2 text-xs text-red-300"
+		class="mb-3 rounded-lg border border-red-700 bg-red-900/30 p-2 text-xs text-red-300"
 	>
 		<strong class="font-semibold">Error:</strong>
 		{$globalSettings.error}
 	</div>
 {:else if $globalSettings.accessToken && !editing}
 	<div
-		class="mb-3 rounded border border-green-700 bg-green-900/30 p-2 text-xs text-green-300"
+		class="mb-3 rounded-lg border border-green-700 bg-green-900/30 p-2 text-xs text-green-300"
 	>
 		✓ Connected to Discord
 	</div>
@@ -63,10 +63,10 @@
 			type="text"
 			bind:value={clientId}
 			placeholder="Enter client ID"
-			class="flex-1 rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-100 placeholder-neutral-500 focus:border-neutral-600 focus:ring-1 focus:ring-neutral-600 focus:outline-none"
+			class="flex-1 rounded-lg border border-neutral-600 bg-neutral-700 px-2 py-1 text-xs text-neutral-100 placeholder-neutral-500 focus:border-neutral-600 focus:ring-1 focus:ring-neutral-600 focus:outline-none"
 		/>
 	{:else}
-		<span class="text-xs text-neutral-400">{clientId || "Not set"}</span>
+		<span class="text-xs text-neutral-300">{clientId || "Not set"}</span>
 	{/if}
 </div>
 
@@ -80,10 +80,10 @@
 			type="password"
 			bind:value={clientSecret}
 			placeholder="Enter client secret"
-			class="flex-1 rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-100 placeholder-neutral-500 focus:border-neutral-600 focus:ring-1 focus:ring-neutral-600 focus:outline-none"
+			class="flex-1 rounded-lg border border-neutral-600 bg-neutral-700 px-2 py-1 text-xs text-neutral-100 placeholder-neutral-500 focus:border-neutral-600 focus:ring-1 focus:ring-neutral-600 focus:outline-none"
 		/>
 	{:else}
-		<span class="text-xs text-neutral-400">
+		<span class="text-xs text-neutral-300">
 			{maskSecret(clientSecret) || "Not set"}
 		</span>
 	{/if}
@@ -93,23 +93,23 @@
 	<div class="mb-3 flex gap-2">
 		<button
 			on:click={handleSave}
-			class="cursor-pointer rounded bg-neutral-700 px-3 py-1 text-xs text-white hover:bg-neutral-600"
+			class="cursor-pointer rounded-lg border border-neutral-500 bg-neutral-600 px-3 py-1 text-xs text-white hover:bg-neutral-500"
 		>
 			Save
 		</button>
 		<button
 			on:click={handleCancel}
-			class="cursor-pointer rounded bg-neutral-800 px-3 py-1 text-xs text-neutral-300 hover:bg-neutral-700"
+			class="cursor-pointer rounded-lg border border-neutral-600 bg-neutral-700 px-3 py-1 text-xs text-neutral-300 hover:bg-neutral-600"
 		>
 			Cancel
 		</button>
 	</div>
 
-	<div class="rounded bg-neutral-800 p-3 text-xs">
-		<p class="mb-2 font-medium text-neutral-300">
+	<div class="rounded-lg border border-neutral-600 bg-neutral-700 p-3 text-xs">
+		<p class="mb-2 font-medium text-neutral-200">
 			Setting up your Discord Application:
 		</p>
-		<ol class="ml-1 list-inside list-decimal space-y-1.5 text-neutral-400">
+		<ol class="ml-1 list-inside list-decimal space-y-1.5 text-neutral-300">
 			<li>
 				Visit the
 				<button
@@ -127,19 +127,17 @@
 			</li>
 			<li>
 				Under "Client information", you'll find your
-				<strong class="text-neutral-300">Client ID</strong>
+				<strong>Client ID</strong>
 			</li>
 			<li>
 				Click "Reset Secret" to generate a new
-				<strong class="text-neutral-300">Client Secret</strong>
+				<strong>Client Secret</strong>
 			</li>
 			<li>Scroll down to "Redirects" and click "Add Redirect"</li>
 			<li>
 				Enter any valid URL (e.g.,
-				<code class="rounded bg-neutral-900 px-1 text-neutral-300">
-					http://localhost
-				</code>
-				) - the value doesn't matter for this plugin
+				<code class="rounded bg-neutral-900 px-1">http://localhost</code>) - the
+				value doesn't matter for this plugin
 			</li>
 			<li>Click "Save Changes" at the bottom</li>
 			<li>Copy your Client ID and Client Secret into the fields above</li>
@@ -148,7 +146,7 @@
 {:else}
 	<button
 		on:click={() => (editing = true)}
-		class="cursor-pointer rounded bg-neutral-700 px-3 py-1 text-xs text-white hover:bg-neutral-600"
+		class="cursor-pointer rounded-lg border border-neutral-600 bg-neutral-700 px-3 py-1 text-xs text-white hover:bg-neutral-600"
 	>
 		Edit
 	</button>
