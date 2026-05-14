@@ -46,7 +46,7 @@ async fn apply_voice_state(mute: Option<bool>, deaf: Option<bool>) {
 	let mute = mute.unwrap_or(false);
 	let deaf = deaf.unwrap_or(false);
 	update_action_state(crate::actions::ToggleMuteAction::UUID, mute).await;
-	update_action_state(crate::actions::ToggleDeafenAction::UUID, deaf).await;
+	update_action_state(crate::actions::ToggleMuteAction::UUID, mute || deaf).await;
 }
 
 async fn update_action_state(action_uuid: ActionUuid, active: bool) {
