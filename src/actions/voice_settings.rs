@@ -25,8 +25,14 @@ pub struct ActionSettings {
 }
 
 // Shared assumed equibop voice state — one source of truth regardless of how many buttons exist.
+// Mute and deafen are tracked independently; the visual mute display is `mute || deafen` (deafen
+// implies muted), but the underlying mute flag is preserved across deafen toggles.
 pub static EQUIBOP_MIC_MUTED: AtomicBool = AtomicBool::new(false);
 pub static EQUIBOP_DEAFENED: AtomicBool = AtomicBool::new(false);
+
+fn visual_muted() -> bool {
+	EQUIBOP_MIC_MUTED.load(Relaxed) || EQUIBOP_DEAFENED.load(Relaxed)
+}
 
 // Per-instance backend setting cache so key handlers always have the current backend
 // even when the host sends empty settings in key events.
@@ -54,9 +60,10 @@ fn is_equibop(instance: &Instance) -> bool {
 		.unwrap_or(false)
 }
 
-// Update all visible ToggleMute button visuals to match the current global mic state.
+// Update all visible ToggleMute button visuals to match the current visual mute state
+// (mute OR deafen — deafen always shows muted even though the underlying mute is preserved).
 async fn sync_mute_visuals() {
-	let muted = EQUIBOP_MIC_MUTED.load(Relaxed);
+	let muted = visual_muted();
 	for instance in visible_instances(ToggleMuteAction::UUID).await {
 		if is_equibop(&instance) {
 			let _ = instance.set_state(if muted { 1 } else { 0 }).await;
@@ -118,11 +125,7 @@ async fn update_voice_setting(
 async fn on_appear(instance: &Instance, settings: &ActionSettings, is_deafen: bool) -> OpenActionResult<()> {
 	cache_update(instance, settings);
 	if settings.backend == BackendMode::Equibop {
-		let state = if is_deafen {
-			EQUIBOP_DEAFENED.load(Relaxed)
-		} else {
-			EQUIBOP_MIC_MUTED.load(Relaxed)
-		};
+		let state = if is_deafen { EQUIBOP_DEAFENED.load(Relaxed) } else { visual_muted() };
 		instance.set_state(if state { 1 } else { 0 }).await?;
 	}
 	Ok(())
@@ -131,11 +134,7 @@ async fn on_appear(instance: &Instance, settings: &ActionSettings, is_deafen: bo
 async fn on_settings_change(instance: &Instance, settings: &ActionSettings, is_deafen: bool) -> OpenActionResult<()> {
 	cache_update(instance, settings);
 	if settings.backend == BackendMode::Equibop {
-		let state = if is_deafen {
-			EQUIBOP_DEAFENED.load(Relaxed)
-		} else {
-			EQUIBOP_MIC_MUTED.load(Relaxed)
-		};
+		let state = if is_deafen { EQUIBOP_DEAFENED.load(Relaxed) } else { visual_muted() };
 		instance.set_state(if state { 1 } else { 0 }).await?;
 	}
 	Ok(())
@@ -175,11 +174,25 @@ impl Action for ToggleMuteAction {
 				.await
 			}
 			BackendMode::Equibop => {
-				let new_muted = !EQUIBOP_MIC_MUTED.load(Relaxed);
-				EQUIBOP_MIC_MUTED.store(new_muted, Relaxed);
-				crate::equibop::run_equibop("--toggle-mic").await;
-				instance.set_state(if new_muted { 1 } else { 0 }).await?;
+				// Visual mute is mute || deafen. Pressing MUTE always toggles the visual:
+				//   - If currently muted (either flag set): clear BOTH and issue a CLI
+				//     toggle for each flag that was previously set.
+				//   - If currently unmuted: set mute and issue --toggle-mic.
+				if visual_muted() {
+					let was_muted = EQUIBOP_MIC_MUTED.swap(false, Relaxed);
+					let was_deafened = EQUIBOP_DEAFENED.swap(false, Relaxed);
+					if was_muted {
+						crate::equibop::run_equibop("--toggle-mic").await;
+					}
+					if was_deafened {
+						crate::equibop::run_equibop("--toggle-deafen").await;
+					}
+				} else {
+					EQUIBOP_MIC_MUTED.store(true, Relaxed);
+					crate::equibop::run_equibop("--toggle-mic").await;
+				}
 				sync_mute_visuals().await;
+				sync_deafen_visuals().await;
 				save_equibop_state().await;
 				Ok(())
 			}
@@ -238,12 +251,11 @@ impl Action for ToggleDeafenAction {
 				.await
 			}
 			BackendMode::Equibop => {
+				// Toggle deafen only; underlying mute is preserved (mute appears T while
+				// deafened thanks to visual_muted, but its stored value never changes here).
 				let new_deafened = !EQUIBOP_DEAFENED.load(Relaxed);
 				EQUIBOP_DEAFENED.store(new_deafened, Relaxed);
-				// Deafening forces mic muted; undeafening restores to unmuted.
-				EQUIBOP_MIC_MUTED.store(new_deafened, Relaxed);
 				crate::equibop::run_equibop("--toggle-deafen").await;
-				instance.set_state(if new_deafened { 1 } else { 0 }).await?;
 				sync_mute_visuals().await;
 				sync_deafen_visuals().await;
 				save_equibop_state().await;
@@ -263,6 +275,7 @@ impl Action for ToggleDeafenAction {
 		if current.backend == BackendMode::Equibop {
 			let new_deafened = !EQUIBOP_DEAFENED.load(Relaxed);
 			EQUIBOP_DEAFENED.store(new_deafened, Relaxed);
+			sync_mute_visuals().await;
 			sync_deafen_visuals().await;
 			save_equibop_state().await;
 		}
@@ -301,7 +314,7 @@ impl Action for PushToMuteAction {
 				.await
 			}
 			BackendMode::Equibop => {
-				if !EQUIBOP_MIC_MUTED.load(Relaxed) {
+				if !EQUIBOP_DEAFENED.load(Relaxed) && !EQUIBOP_MIC_MUTED.load(Relaxed) {
 					EQUIBOP_MIC_MUTED.store(true, Relaxed);
 					crate::equibop::run_equibop("--toggle-mic").await;
 					sync_mute_visuals().await;
@@ -324,7 +337,7 @@ impl Action for PushToMuteAction {
 				.await
 			}
 			BackendMode::Equibop => {
-				if EQUIBOP_MIC_MUTED.load(Relaxed) {
+				if !EQUIBOP_DEAFENED.load(Relaxed) && EQUIBOP_MIC_MUTED.load(Relaxed) {
 					EQUIBOP_MIC_MUTED.store(false, Relaxed);
 					crate::equibop::run_equibop("--toggle-mic").await;
 					sync_mute_visuals().await;
@@ -383,7 +396,7 @@ impl Action for PushToTalkAction {
 				.await
 			}
 			BackendMode::Equibop => {
-				if EQUIBOP_MIC_MUTED.load(Relaxed) {
+				if !EQUIBOP_DEAFENED.load(Relaxed) && EQUIBOP_MIC_MUTED.load(Relaxed) {
 					EQUIBOP_MIC_MUTED.store(false, Relaxed);
 					crate::equibop::run_equibop("--toggle-mic").await;
 					sync_mute_visuals().await;
@@ -406,7 +419,7 @@ impl Action for PushToTalkAction {
 				.await
 			}
 			BackendMode::Equibop => {
-				if !EQUIBOP_MIC_MUTED.load(Relaxed) {
+				if !EQUIBOP_DEAFENED.load(Relaxed) && !EQUIBOP_MIC_MUTED.load(Relaxed) {
 					EQUIBOP_MIC_MUTED.store(true, Relaxed);
 					crate::equibop::run_equibop("--toggle-mic").await;
 					sync_mute_visuals().await;
