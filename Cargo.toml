@@ -5,9 +5,10 @@ edition = "2024"
 [dependencies]
 openaction = "2.3"
 discord-ipc-rust = { git = "https://github.com/nekename/discord-ipc-rust.git" }
+dashmap = "6.1"
 serde = "1.0"
 serde_json = "1.0"
-tokio = { version = "1.48", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1.48", features = ["rt-multi-thread", "macros", "process"] }
 log = "0.4"
 simplelog = "0.12"
 reqwest = { version = "0.12", features = ["json"] }

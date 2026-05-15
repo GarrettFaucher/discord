@@ -22,7 +22,7 @@
 			"Icon": "actions/mute_0",
 			"Tooltip": "Mute and unmute yourself",
 			"Controllers": ["Keypad"],
-			"PropertyInspectorPath": "pi/simple.html",
+			"PropertyInspectorPath": "pi/togglemute.html",
 			"DisableAutomaticStates": true,
 			"States": [{ "Image": "actions/mute_0" }, { "Image": "actions/mute_1" }]
 		},
@@ -32,7 +32,7 @@
 			"Icon": "actions/deafen_0",
 			"Tooltip": "Deafen and undeafen yourself",
 			"Controllers": ["Keypad"],
-			"PropertyInspectorPath": "pi/simple.html",
+			"PropertyInspectorPath": "pi/toggledeafen.html",
 			"DisableAutomaticStates": true,
 			"States": [{ "Image": "actions/deafen_0" }, { "Image": "actions/deafen_1" }]
 		},
@@ -42,7 +42,7 @@
 			"Icon": "actions/pushtomute_0",
 			"Tooltip": "Mute and unmute yourself by holding down a key",
 			"Controllers": ["Keypad"],
-			"PropertyInspectorPath": "pi/simple.html",
+			"PropertyInspectorPath": "pi/pushtomute.html",
 			"DisableAutomaticStates": true,
 			"SupportedInMultiActions": false,
 			"States": [{ "Image": "actions/pushtomute_0" }, { "Image": "actions/pushtomute_1" }]
@@ -53,7 +53,7 @@
 			"Icon": "actions/pushtotalk_0",
 			"Tooltip": "Unmute and mute yourself by holding down a key",
 			"Controllers": ["Keypad"],
-			"PropertyInspectorPath": "pi/simple.html",
+			"PropertyInspectorPath": "pi/pushtotalk.html",
 			"DisableAutomaticStates": true,
 			"SupportedInMultiActions": false,
 			"States": [{ "Image": "actions/pushtotalk_0" }, { "Image": "actions/pushtotalk_1" }]

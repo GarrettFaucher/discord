@@ -46,12 +46,20 @@ async fn apply_voice_state(mute: Option<bool>, deaf: Option<bool>) {
 	let mute = mute.unwrap_or(false);
 	let deaf = deaf.unwrap_or(false);
 	update_action_state(crate::actions::ToggleMuteAction::UUID, mute).await;
-	update_action_state(crate::actions::ToggleMuteAction::UUID, mute || deaf).await;
+	update_action_state(crate::actions::ToggleDeafenAction::UUID, deaf).await;
 }
 
+// Only update instances that are in Discord mode — don't clobber Equibop-mode button visuals.
 async fn update_action_state(action_uuid: ActionUuid, active: bool) {
 	let state = if active { 1 } else { 0 };
 	for instance in visible_instances(action_uuid).await {
+		if crate::actions::SETTINGS_CACHE
+			.get(&instance.instance_id)
+			.map(|s| s.backend == crate::actions::BackendMode::Equibop)
+			.unwrap_or(false)
+		{
+			continue;
+		}
 		if let Err(e) = instance.set_state(state).await {
 			log::error!("Failed to update state for {}: {}", action_uuid, e);
 		}

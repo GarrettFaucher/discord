@@ -1,5 +1,6 @@
 mod actions;
 mod client;
+mod equibop;
 mod oauth;
 mod rpc_events;
 
@@ -25,6 +26,11 @@ pub struct DiscordSettings {
 	#[serde(rename = "accessToken")]
 	pub access_token: String,
 	pub error: Option<String>,
+	// Assumed equibop voice state — persisted so it survives plugin restarts.
+	#[serde(rename = "equibopMicMuted")]
+	pub equibop_mic_muted: bool,
+	#[serde(rename = "equibopDeafened")]
+	pub equibop_deafened: bool,
 }
 
 // Global storage for the last-applied settings so every module can read/write them.
@@ -48,7 +54,12 @@ impl global_events::GlobalEventHandler for GlobalEventHandler {
 		let settings: DiscordSettings =
 			serde_json::from_value(event.payload.settings).unwrap_or_default();
 
-		// Only react when the stored settings actually changed so we can avoid reconnect churn.
+		// Always restore equibop assumed state from persisted values.
+		use std::sync::atomic::Ordering::Relaxed;
+		actions::EQUIBOP_MIC_MUTED.store(settings.equibop_mic_muted, Relaxed);
+		actions::EQUIBOP_DEAFENED.store(settings.equibop_deafened, Relaxed);
+
+		// Only reconnect when OAuth credentials actually changed.
 		let current = current_settings().read().await;
 		let settings_changed = current.client_id != settings.client_id
 			|| current.client_secret != settings.client_secret
@@ -60,11 +71,13 @@ impl global_events::GlobalEventHandler for GlobalEventHandler {
 
 		if settings_changed {
 			log::info!("Global settings changed, reinitializing Discord client");
-
-			// Persist the new configuration before attempting to reconnect.
 			*current_settings().write().await = settings;
-
 			schedule_reconnect();
+		} else {
+			// Sync equibop fields without triggering a reconnect.
+			let mut current = current_settings().write().await;
+			current.equibop_mic_muted = settings.equibop_mic_muted;
+			current.equibop_deafened = settings.equibop_deafened;
 		}
 
 		Ok(())
