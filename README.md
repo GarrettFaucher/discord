@@ -12,4 +12,5 @@ An OpenAction ([OpenDeck](https://github.com/nekename/OpenDeck) / [Tacto](https:
 - Push to Mute
 - Push to Talk
 - Toggle Voice Input Mode
+- Toggle Video
 - Toggle Screen Share

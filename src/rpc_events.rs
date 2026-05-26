@@ -26,6 +26,9 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 				}
 			}
 			ReturnedEvent::VoiceSettingsUpdate(voice) => apply_voice_state(&voice).await,
+			ReturnedEvent::VideoStateUpdate(state) => {
+				update_action_state(crate::actions::ToggleVideoAction::UUID, state.active).await;
+			}
 			ReturnedEvent::ScreenshareStateUpdate(state) => {
 				update_action_state(crate::actions::ToggleScreenshareAction::UUID, state.active)
 					.await;

@@ -69,6 +69,16 @@
 			"States": [{ "Image": "actions/ptttoggle_0" }, { "Image": "actions/ptttoggle_1" }]
 		},
 		{
+			"UUID": "me.amankhanna.oadiscord.togglevideo",
+			"Name": "Toggle Video",
+			"Icon": "actions/video_0",
+			"Tooltip": "Start or stop streaming video in the current voice call",
+			"Controllers": ["Keypad"],
+			"PropertyInspectorPath": "pi/simple.html",
+			"DisableAutomaticStates": true,
+			"States": [{ "Image": "actions/video_0" }, { "Image": "actions/video_1" }]
+		},
+		{
 			"UUID": "me.amankhanna.oadiscord.togglescreenshare",
 			"Name": "Toggle Screen Share",
 			"Icon": "actions/stream_0",

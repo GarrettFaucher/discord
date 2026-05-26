@@ -91,13 +91,19 @@ async fn setup_discord_client(
 		SubscribeableEvent::VoiceSettingsUpdate,
 	))
 	.await
-	.map_err(|e| format!("Failed to subscribe to voice updates: {}", e))?;
+	.map_err(|e| format!("Failed to subscribe to voice settings updates: {}", e))?;
+
+	rpc.emit_command(&SentCommand::Subscribe(
+		SubscribeableEvent::VideoStateUpdate,
+	))
+	.await
+	.map_err(|e| format!("Failed to subscribe to video state updates: {}", e))?;
 
 	rpc.emit_command(&SentCommand::Subscribe(
 		SubscribeableEvent::ScreenshareStateUpdate,
 	))
 	.await
-	.map_err(|e| format!("Failed to subscribe to screen share state: {}", e))?;
+	.map_err(|e| format!("Failed to subscribe to screen share state updates: {}", e))?;
 
 	// Request current voice settings so buttons reflect the initial state immediately.
 	rpc.emit_command(&SentCommand::GetVoiceSettings)
@@ -194,6 +200,8 @@ async fn create_discord_client(settings: &DiscordSettings) -> Result<DiscordIpcC
 			client_id: settings.client_id.clone(),
 			scopes: vec![
 				"rpc".to_owned(),
+				"rpc.video.read".to_owned(),
+				"rpc.video.write".to_owned(),
 				"rpc.screenshare.read".to_owned(),
 				"rpc.screenshare.write".to_owned(),
 				"identify".to_owned(),
