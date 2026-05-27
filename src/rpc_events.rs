@@ -1,3 +1,4 @@
+use crate::actions::audio_device_utils::{AudioDeviceType, AudioDeviceWrapper};
 use crate::client::schedule_reconnect;
 use crate::current_settings;
 
@@ -25,7 +26,7 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 					schedule_reconnect();
 				}
 			}
-			ReturnedEvent::VoiceSettingsUpdate(voice) => apply_voice_state(&voice).await,
+			ReturnedEvent::VoiceSettingsUpdate(voice) => apply_voice_state(voice).await,
 			ReturnedEvent::VideoStateUpdate(state) => {
 				update_action_state(crate::actions::ToggleVideoAction::UUID, state.active).await;
 			}
@@ -37,7 +38,7 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 		},
 		ReceivedItem::Command(command) => {
 			if let ReturnedCommand::GetVoiceSettings(voice) = *command {
-				apply_voice_state(&voice).await;
+				apply_voice_state(voice).await;
 			}
 		}
 		ReceivedItem::SocketClosed => {
@@ -47,7 +48,7 @@ pub async fn handle_rpc_event(item: ReceivedItem) {
 	}
 }
 
-async fn apply_voice_state(settings: &discord_ipc_rust::models::shared::voice::VoiceSettings) {
+async fn apply_voice_state(settings: discord_ipc_rust::models::shared::voice::VoiceSettings) {
 	let mute = settings.mute.unwrap_or(false);
 	let deaf = settings.deaf.unwrap_or(false);
 	update_action_state(crate::actions::ToggleMuteAction::UUID, mute || deaf).await;
@@ -61,6 +62,26 @@ async fn apply_voice_state(settings: &discord_ipc_rust::models::shared::voice::V
 				mode_type: mode.mode_type.clone(),
 				..*mode
 			});
+	}
+
+	if let Some(input) = settings.input {
+		*crate::actions::audio_device_utils::audio_input_settings()
+			.write()
+			.await = Some(AudioDeviceWrapper {
+			device_type: AudioDeviceType::Input,
+			device_id: input.device_id,
+			volume: input.volume,
+		});
+	}
+
+	if let Some(output) = settings.output {
+		*crate::actions::audio_device_utils::audio_output_settings()
+			.write()
+			.await = Some(AudioDeviceWrapper {
+			device_type: AudioDeviceType::Output,
+			device_id: output.device_id,
+			volume: output.volume,
+		});
 	}
 }
 

@@ -1,3 +1,8 @@
+pub mod audio_device_utils;
+mod volume_control;
+
+pub use volume_control::VolumeControlAction;
+
 use crate::client::discord_client;
 
 use std::collections::HashMap;
