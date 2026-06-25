@@ -177,7 +177,14 @@ async fn main() -> OpenActionResult<()> {
 
 	// Start the bridge on the default port before handing control to the OpenDeck event loop;
 	// a different stored port arrives via `did_receive_global_settings` and restarts it.
-	restart_server(current_settings().read().await.port).await;
+	//
+	// Read the port into a local FIRST: `current_settings().read().await.port` keeps the read
+	// guard alive until the end of the statement (i.e. across the whole `restart_server().await`),
+	// and `restart_server` → `clear_bridge_error` takes the *write* lock on the same RwLock — which
+	// would deadlock, leaving the plugin serving the bridge but never reaching `run()` to connect
+	// to OpenDeck (so no willAppear/keyUp ever arrive and every button is silently dead).
+	let initial_port = current_settings().read().await.port;
+	restart_server(initial_port).await;
 
 	run(std::env::args().collect()).await
 }
