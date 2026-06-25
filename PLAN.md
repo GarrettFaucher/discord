@@ -332,12 +332,12 @@ Feasibility reflects the **Vencord** path. "Verify in DevTools" = confirm the ex
     `findByProps("toggleSelfMute","toggleSelfDeaf")`); `MediaEngineStore` from `@webpack/common`. Implement
     `setMute`/`setDeafen`/`toggleMute`/`toggleDeafen` and `requestState`. **Verify the finder resolves in
     DevTools.** Deps: T3.1. Accept: each command toggles the real Discord mute/deafen indicator.
-- [~] **T3.3 (V)** Channel command handlers.
+- [x] **T3.3 (V)** Channel command handlers.
   - Files: `index.tsx`. Do: `const VoiceActions = findByPropsLazy("selectVoiceChannel")`; implement
     `selectVoiceChannel(id|null)` and `selectTextChannel` (verify the text-nav action — `NavigationRouter`/
     channel select); implement `requestGuilds` reading `GuildStore`/`ChannelStore`/`SortedGuildStore`. Deps: T3.1.
     Accept: commands join/leave voice and jump text channels; `guilds` event populates the R-side cache.
-- [~] **T3.4 (V)** State feedback via Flux.
+- [x] **T3.4 (V)** State feedback via Flux.
   - Files: `index.tsx`. Do: `flux:{ AUDIO_TOGGLE_SELF_MUTE(){…}, AUDIO_TOGGLE_SELF_DEAF(){…}, VOICE_STATE_UPDATES(){…} }`
     handlers read `MediaEngineStore` + `SelectedChannelStore.getVoiceChannelId()` and push `stateUpdate`. Deps: T3.1.
     Accept: muting from Discord's own UI flips the stream-deck button state.
@@ -345,11 +345,10 @@ Feasibility reflects the **Vencord** path. "Verify in DevTools" = confirm the ex
     real `@webpack/common` exports — `VoiceActions.toggleSelfMute/toggleSelfDeaf`, `ChannelActions.selectVoiceChannel`,
     `NavigationRouter`, `GuildChannelStore.getChannels`) → `96cf759` on the **R** side fixed the startup deadlock that
     was the real blocker. **User confirmed live: Toggle Mute + Toggle Deafen drive Equibop and reflect button state.**
-  - → T3.3/T3.4 `[~]`: channel handlers + Flux feedback are implemented and **re-verified against Equicord source**
-    (all finders re-confirmed at `src/webpack/common/{utils,stores}.ts`; flux `AUDIO_TOGGLE_SELF_MUTE`/`SELF_DEAF`/
-    `VOICE_STATE_UPDATES` confirmed via `vcNarrator`) and the plugin **compiles cleanly into the Equibop bundle**
-    (`pnpm build`, dist/equibop/renderer.js). Promote to `[x]` after the user live-tests voice/text channel switching
-    and Discord-UI→button feedback (part of T5.3).
+  - → **done (T3.3/T3.4): user-confirmed live.** Voice Channel join/leave + Text Channel jump drive Equibop, and
+    mute/deafen from Discord's own UI flips the deck buttons (T5.3 checks 5/6/7). Finders re-verified against Equicord
+    source (`src/webpack/common/{utils,stores}.ts`; flux `AUDIO_TOGGLE_SELF_MUTE`/`SELF_DEAF`/`VOICE_STATE_UPDATES`
+    via `vcNarrator`); plugin compiles cleanly into the Equibop bundle (`pnpm build`, dist/equibop/renderer.js).
 
 ### Phase 4 — Rust PI rework  (R)
 - [x] **T4.1 (R)** Replace the Discord-app PI with a bridge-port PI **and migrate the channel PI**.
@@ -398,15 +397,15 @@ Feasibility reflects the **Vencord** path. "Verify in DevTools" = confirm the ex
 - [ ] **T5.2 (V)** Document + verify the Equibop build.
   - Files: `README.md`. Do: reproducible steps to compile the plugin inside an Equibop/Equicord checkout. Deps: T3.*.
     Accept: plugin compiles and shows in the plugin list after restart.
-- [~] **T5.3 (R+V)** MVP end-to-end test.
+- [x] **T5.3 (R+V)** MVP end-to-end test.
   - Do: install both sides; in OpenDeck verify (1) Toggle Mute, (2) Toggle Deafen, (3) Push to Mute, (4) Push to
     Talk, (5) Voice Channel join/leave, (6) Text Channel jump — all act in Equibop AND reflect button state;
     (7) muting in Discord UI updates buttons; (8) closing Equibop → `show_alert`; (9) reopening → reconnect +
     resync. Deps: T5.1,T5.2. Accept: all 9 checks pass. **← MVP milestone.**
-  - → in progress: **checks (1)+(2) PASS — user-confirmed Toggle Mute + Toggle Deafen** drive Equibop and reflect
-    button state (after the R deadlock fix `96cf759` + V finder fix `05b9974`). Both halves now build clean. Remaining
-    user-side checks: (3) Push-to-Mute, (4) Push-to-Talk, (5) Voice Channel, (6) Text Channel, (7) Discord-UI→button
-    feedback, (8) disconnect→show_alert, (9) reconnect+resync.
+  - → **done — MVP MILESTONE REACHED.** All 9 checks user-confirmed live: (1) Toggle Mute, (2) Toggle Deafen,
+    (3) Push-to-Mute, (4) Push-to-Talk, (5) Voice Channel join/leave, (6) Text Channel jump all drive Equibop and
+    reflect button state; (7) mute/deafen from Discord's own UI flips the deck; (8) quitting Equibop → `show_alert`;
+    (9) reopening → reconnect + resync (no OpenDeck restart). After the R deadlock fix `96cf759` + V finder fix `05b9974`.
 
 ### Phase 6 — Tier-2 actions (Medium feasibility)
 > **V-side handlers for all of T6.1–T6.5 are implemented and build-verified** in `equibop-opendeck` `e88aaec`
