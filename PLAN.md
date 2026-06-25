@@ -475,6 +475,23 @@ Feasibility reflects the **Vencord** path. "Verify in DevTools" = confirm the ex
     `false`; (R3) `screenShareStarting` in-flight guard debounces double-taps during the dialog window (cleared on
     `STREAM_CREATE`/`STREAM_DELETE`); (R4) `enumerateSources` retries the 3-arg `getDesktopSources` form on empty and
     prefers a `screen:`-type source. Build-verified (`pnpm build` green).
+  - → **ROOT-CAUSE FOUND + FIXED (V, session 4 cont — live-debugged with the user). Screen share now WORKS.**
+    The button did nothing because the renderer pre-enumeration step threw and the code bailed before ever calling
+    `startStream`. DevTools showed: `getDesktopSources threw: Invariant Violation: "Can't get desktop sources outside
+    of native app"`. **Equibop runs Discord's WEB client, where Discord's own `getDesktopSources` is hard-gated to the
+    official native app and throws** — so the entire instantScreenshare blueprint (enumerate in renderer → `startStream`
+    with a real id) is impossible here, and InstantScreenshare itself can't work on Equibop. Confirmed against the
+    INSTALLED `/usr/lib/equibop/app.asar` (extracted + read): Equibop's real screen share never calls that function —
+    it relies on the renderer calling `getDisplayMedia`, which the main-process `setDisplayMediaRequestHandler` services
+    by running `desktopCapturer.getSources` ITSELF and (Wayland) auto-capturing `sources[0]` with `skipPicker:true`.
+    **So the `sourceId` is irrelevant — the handler always re-enumerates.** FIX: stop calling `getDesktopSources`
+    entirely; dispatch `startStream(guild, channel, {pid:null, sourceId:"screen:0:0", sourceName:"Screen",
+    audioSourceId:"Screen", sound, previewDisabled})` with a placeholder id and let Equibop's handler capture. **Verified
+    LIVE in the user's Equibop console — `startStream` with the placeholder id goes Go-Live and shares the screen
+    ("WORKING!").** On Wayland Equibop auto-picks the primary/active screen, so this is effectively the user's requested
+    "share the active screen." Removed `enumerateSources`/`getDesktopSources`/`IS_WINDOWS`/`getMediaEngine`; kept the
+    R1/R3 reconcile+debounce hardening. Build-verified (`pnpm build` green). **Supersedes the session-4 "one OS-dialog
+    confirmation is the ceiling" conclusion** — the dialog was never the blocker; the throwing enumerator was.
 - [x] **T7.4 (R)** Final rebrand/UUIDs — new UUID namespace (e.g. `com.garrettfaucher.equibop.<suffix>`) across
   `src/actions/*` and `assets/manifest.json` (`Name`,`Author`,`CodePaths`, all action UUIDs); swap icons if
   desired. Deps: parity actions done. Accept: manifest UUIDs match Rust; plugin loads under the new identity.
