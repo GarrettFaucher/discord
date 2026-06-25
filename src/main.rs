@@ -11,8 +11,10 @@ use std::sync::OnceLock;
 
 use openaction::{
 	OpenActionResult, async_trait, get_global_settings, global_events, register_action, run,
+	set_global_settings,
 };
 use serde::{Deserialize, Serialize};
+use tokio::net::TcpListener;
 use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 
@@ -55,11 +57,63 @@ fn server_handle() -> &'static RwLock<Option<JoinHandle<()>>> {
 
 // (Re)bind the bridge server on the given port, aborting any previous instance.
 async fn restart_server(port: u16) {
-	let mut handle = server_handle().write().await;
-	if let Some(old) = handle.take() {
-		old.abort();
+	let bind_result = {
+		let mut handle = server_handle().write().await;
+
+		// Abort the previous server AND wait for it to finish so its TcpListener is dropped before
+		// we rebind — `abort()` only schedules cancellation, so binding without this await can race
+		// the old listener and fail with EADDRINUSE, leaving the bridge silently dead.
+		if let Some(old) = handle.take() {
+			old.abort();
+			let _ = old.await;
+		}
+
+		match TcpListener::bind(("127.0.0.1", port)).await {
+			Ok(listener) => {
+				*handle = Some(tokio::spawn(ws_server::serve(listener)));
+				Ok(())
+			}
+			Err(e) => Err(e),
+		}
+	};
+
+	match bind_result {
+		Ok(()) => clear_bridge_error().await,
+		Err(e) => {
+			log::error!("Failed to bind Equibop bridge on 127.0.0.1:{port}: {e}");
+			set_bridge_error(format!("Could not bind the bridge on port {port}: {e}")).await;
+		}
 	}
-	*handle = Some(tokio::spawn(ws_server::serve(port)));
+}
+
+// Surface a bridge error in the global settings so the property inspector can show it.
+async fn set_bridge_error(message: String) {
+	let snapshot = {
+		let mut settings = current_settings().write().await;
+		if settings.error.as_deref() == Some(message.as_str()) {
+			return;
+		}
+		settings.error = Some(message);
+		settings.clone()
+	};
+	if let Err(e) = set_global_settings(&snapshot).await {
+		log::error!("Failed to persist bridge error: {e}");
+	}
+}
+
+// Clear a previously reported bridge error once the server binds successfully.
+async fn clear_bridge_error() {
+	let snapshot = {
+		let mut settings = current_settings().write().await;
+		if settings.error.is_none() {
+			return;
+		}
+		settings.error = None;
+		settings.clone()
+	};
+	if let Err(e) = set_global_settings(&snapshot).await {
+		log::error!("Failed to clear bridge error: {e}");
+	}
 }
 
 // Handles global setting updates pushed from the Stream Deck host.

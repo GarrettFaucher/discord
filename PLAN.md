@@ -301,8 +301,12 @@ Feasibility reflects the **Vencord** path. "Verify in DevTools" = confirm the ex
     and sends `SelectVoiceChannel{channelId|null}`; TextChannel sends `SelectTextChannel{guildId,channelId}`.
     The per-guild `GetChannels` round-trip + `request_channels`/`ChannelKind` machinery was **removed**: the
     `guilds` event now carries nested `voice`/`text` channel lists (`CachedGuild` extended), so the PI filters
-    locally. **PI Svelte side is NOT yet reworked** to read nested channels — that is **T4.1** (the channel PI
-    will not populate until then; intended deferral, not the MVP gate).
+    locally. ⚠️ **SILENT BREAKAGE until T4.1** (confirmed by the session-2 review): the `selectchannel` PI
+    (`pi/src/routes/selectchannel/+page.svelte`) is still the unchanged upstream version — it does the old
+    two-step `request_channels` round-trip (whose Rust `send_to_plugin` handler was **deleted**) and reads a flat
+    `payload.channels` the server no longer sends, while ignoring the new nested `guild.voice`/`guild.text`. Net:
+    **Voice/Text Channel selection is non-functional** (dropdown stuck on "No channels available") until the PI
+    is rewritten in **T4.1**. Not the MVP *build* gate, but it IS an MVP *functionality* gate.
   - → NOTE (early Tier-2/3 R-port): removing `discord-ipc-rust` forced **all 14** action handlers off the old
     Discord types, so the Rust side of the Tier-2/3 actions was ported now too (they send their protocol command
     via `send_command`): Volume (`setInputVolume`/`setOutputVolume`, dial), Set Audio Device (`setInput/OutputDevice`,
@@ -336,11 +340,17 @@ Feasibility reflects the **Vencord** path. "Verify in DevTools" = confirm the ex
     Accept: muting from Discord's own UI flips the stream-deck button state.
 
 ### Phase 4 — Rust PI rework  (R)
-- [ ] **T4.1 (R)** Replace the Discord-app PI with a bridge-port PI.
-  - Files: `pi/src/lib/ApplicationSettings.svelte` (and `pi/src/routes/...`). Do: remove clientId/secret/OAuth
-    instructions; add a "Bridge Port" number bound to `$globalSettings.port` (default 6789), an error banner
-    from `$globalSettings.error`, and a short "install the Equibop plugin" block linking repo V. Deps: T1.5.
-    Accept: `vite build` succeeds; PI shows only the port field + status.
+- [ ] **T4.1 (R)** Replace the Discord-app PI with a bridge-port PI **and migrate the channel PI**.
+  - Files: `pi/src/lib/ApplicationSettings.svelte`, `pi/src/routes/selectchannel/+page.svelte` (and other
+    `pi/src/routes/...` as needed). Do: (1) remove clientId/secret/OAuth instructions; add a "Bridge Port" number
+    bound to `$globalSettings.port` (default 6789), an error banner from `$globalSettings.error` (now also set by
+    the Rust side on a bridge **bind failure** — see `set_bridge_error`), and a short "install the Equibop plugin"
+    block linking repo V. (2) **Fix the channel PI silent breakage (see T2.2):** rewrite `selectchannel/+page.svelte`
+    to read `guild.voice` / `guild.text` from the `guilds` payload (Voice page → voice list, Text page → text list)
+    and **delete** the `request_channels` round-trip + `payload.channels` handling (the Rust `send_to_plugin`
+    handler no longer exists). Deps: T1.5.
+    Accept: `vite build` succeeds; PI shows only the port field + status; the Voice/Text Channel dropdowns
+    populate from the nested guild data and a selection drives the bridge.
 - [ ] **T4.2 (R)** Rebrand PI package.
   - Files: `pi/package.json`. Do: rename `oadiscord-pi`→`equibop-pi`; rebuild; confirm `assets/pi/*` regenerate.
     Deps: T4.1. Accept: PI builds; generated HTML references the new bundle.
@@ -473,7 +483,10 @@ Feasibility reflects the **Vencord** path. "Verify in DevTools" = confirm the ex
   `state.rs`; `oauth.rs`/`client.rs`/`rpc_events.rs` deleted; `Cargo.toml` deps swapped. **All 14** action
   handlers now route through `send_command` (MVP 6 + the Tier-2/3 Rust side ported early so the tree compiles).
   `PROTOCOL.md` wire encodings clarified. T0.4 scaffolded the **`equibop-opendeck`** repo. Done this session:
-  T0.4, T1.1–T1.5, T2.1–T2.2. An adversarial review workflow vetted the refactor (see notes). Still pending:
+  T0.4, T1.1–T1.5, T2.1–T2.2. An adversarial review workflow (4 dimensions + verifier passes) vetted the
+  refactor and confirmed 2 issues: (1) a `restart_server` port-rebind race — **fixed** this session: the bind
+  now drains the old listener (`abort()` + `await`) before rebinding and surfaces bind failures to the PI via
+  `set_bridge_error`; (2) the channel-PI silent breakage — reclassified under T2.2 and folded into T4.1. Still pending:
   **T0.3 rename** (manual), **T4.x PI rework** (the channel/settings Svelte PI still references the old
   clientId/secret + per-guild channel request), and the **V-side handlers** (Phase 3 onward). Next up: Phase 3
   (userplugin WS client) and/or Phase 4 (Rust PI rework).

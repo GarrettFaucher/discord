@@ -41,16 +41,15 @@ pub async fn send_command(command: ServerCommand) -> Result<(), ()> {
 	})
 }
 
-/// Bind and run the bridge server until the task is aborted.
-pub async fn serve(port: u16) {
-	let addr = format!("127.0.0.1:{port}");
-	let listener = match TcpListener::bind(&addr).await {
-		Ok(listener) => listener,
-		Err(e) => {
-			log::error!("Failed to bind Equibop bridge on {addr}: {e}");
-			return;
-		}
-	};
+/// Run the accept loop on an already-bound listener until the task is aborted.
+///
+/// Binding is done by the caller (`restart_server`) so that a port change can drain the previous
+/// listener before rebinding — `serve` never owns the bind, which avoids double-binding the port.
+pub async fn serve(listener: TcpListener) {
+	let addr = listener
+		.local_addr()
+		.map(|a| a.to_string())
+		.unwrap_or_else(|_| "127.0.0.1".to_string());
 
 	log::info!("Equibop bridge listening on {addr}");
 
