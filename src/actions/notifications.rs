@@ -36,7 +36,7 @@ pub struct NotificationsSettings {
 pub struct NotificationsAction;
 #[async_trait]
 impl Action for NotificationsAction {
-	const UUID: ActionUuid = "me.amankhanna.oadiscord.notifications";
+	const UUID: ActionUuid = "com.garrettfaucher.equibop.notifications";
 	type Settings = NotificationsSettings;
 
 	async fn will_appear(

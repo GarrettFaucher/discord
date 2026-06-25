@@ -9,7 +9,7 @@ pub struct ToggleVideoAction;
 
 #[async_trait]
 impl Action for ToggleVideoAction {
-	const UUID: ActionUuid = "me.amankhanna.oadiscord.togglevideo";
+	const UUID: ActionUuid = "com.garrettfaucher.equibop.togglevideo";
 	type Settings = HashMap<String, String>;
 
 	async fn key_up(

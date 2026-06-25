@@ -39,7 +39,7 @@ pub(crate) async fn send_with_state(
 pub struct ToggleMuteAction;
 #[async_trait]
 impl Action for ToggleMuteAction {
-	const UUID: ActionUuid = "me.amankhanna.oadiscord.togglemute";
+	const UUID: ActionUuid = "com.garrettfaucher.equibop.togglemute";
 	type Settings = HashMap<String, String>;
 
 	async fn key_up(
@@ -60,7 +60,7 @@ impl Action for ToggleMuteAction {
 pub struct ToggleDeafenAction;
 #[async_trait]
 impl Action for ToggleDeafenAction {
-	const UUID: ActionUuid = "me.amankhanna.oadiscord.toggledeafen";
+	const UUID: ActionUuid = "com.garrettfaucher.equibop.toggledeafen";
 	type Settings = HashMap<String, String>;
 
 	async fn key_up(
@@ -81,7 +81,7 @@ impl Action for ToggleDeafenAction {
 pub struct PushToMuteAction;
 #[async_trait]
 impl Action for PushToMuteAction {
-	const UUID: ActionUuid = "me.amankhanna.oadiscord.pushtomute";
+	const UUID: ActionUuid = "com.garrettfaucher.equibop.pushtomute";
 	type Settings = HashMap<String, String>;
 
 	async fn key_down(
@@ -104,7 +104,7 @@ impl Action for PushToMuteAction {
 pub struct PushToTalkAction;
 #[async_trait]
 impl Action for PushToTalkAction {
-	const UUID: ActionUuid = "me.amankhanna.oadiscord.pushtotalk";
+	const UUID: ActionUuid = "com.garrettfaucher.equibop.pushtotalk";
 	type Settings = HashMap<String, String>;
 
 	async fn key_down(
@@ -127,7 +127,7 @@ impl Action for PushToTalkAction {
 pub struct ToggleVoiceInputModeAction;
 #[async_trait]
 impl Action for ToggleVoiceInputModeAction {
-	const UUID: ActionUuid = "me.amankhanna.oadiscord.togglevoiceinputmode";
+	const UUID: ActionUuid = "com.garrettfaucher.equibop.togglevoiceinputmode";
 	type Settings = HashMap<String, String>;
 
 	async fn key_up(

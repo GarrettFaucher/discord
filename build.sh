@@ -4,7 +4,7 @@ set -euo pipefail
 
 if [ $# -ne 3 ]; then
 	echo "Usage: $0 <output_directory> <binary_name> <target_triple>"
-	echo "Example: $0 ~/.config/opendeck/plugins/com.example.myplugin.sdPlugin oamyplugin x86_64-unknown-linux-gnu"
+	echo "Example: $0 ~/.config/opendeck/plugins/com.garrettfaucher.equibop.sdPlugin equibop x86_64-unknown-linux-gnu"
 	exit 1
 fi
 

@@ -9,7 +9,7 @@ pub struct ToggleScreenshareAction;
 
 #[async_trait]
 impl Action for ToggleScreenshareAction {
-	const UUID: ActionUuid = "me.amankhanna.oadiscord.togglescreenshare";
+	const UUID: ActionUuid = "com.garrettfaucher.equibop.togglescreenshare";
 	type Settings = HashMap<String, String>;
 
 	async fn key_up(

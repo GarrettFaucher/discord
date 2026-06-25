@@ -51,7 +51,7 @@ pub struct SoundboardAction;
 
 #[async_trait]
 impl Action for SoundboardAction {
-	const UUID: ActionUuid = "me.amankhanna.oadiscord.soundboard";
+	const UUID: ActionUuid = "com.garrettfaucher.equibop.soundboard";
 	type Settings = SoundboardSettings;
 
 	async fn will_appear(

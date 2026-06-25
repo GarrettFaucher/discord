@@ -1,5 +1,5 @@
 {
-	"name": "oadiscord-pi",
+	"name": "equibop-pi",
 	"type": "module",
 	"scripts": {
 		"build": "vite build",

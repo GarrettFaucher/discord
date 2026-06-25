@@ -1,23 +1,23 @@
 {
-	"Name": "Discord",
-	"Author": "nekename",
+	"Name": "Equibop",
+	"Author": "Garrett Faucher",
 	"Version": "0.5.0",
-	"Category": "Discord",
+	"Category": "Equibop",
 	"Icon": "icon",
 	"OS": [{ "Platform": "windows" }, { "Platform": "mac" }, { "Platform": "linux" }],
 	"CodePaths": {
-		"x86_64-pc-windows-msvc": "oadiscord-x86_64-pc-windows-msvc.exe",
-		"x86_64-apple-darwin": "oadiscord-x86_64-apple-darwin",
-		"aarch64-apple-darwin": "oadiscord-aarch64-apple-darwin",
-		"x86_64-unknown-linux-gnu": "oadiscord-x86_64-unknown-linux-gnu",
-		"aarch64-unknown-linux-gnu": "oadiscord-aarch64-unknown-linux-gnu"
+		"x86_64-pc-windows-msvc": "equibop-x86_64-pc-windows-msvc.exe",
+		"x86_64-apple-darwin": "equibop-x86_64-apple-darwin",
+		"aarch64-apple-darwin": "equibop-aarch64-apple-darwin",
+		"x86_64-unknown-linux-gnu": "equibop-x86_64-unknown-linux-gnu",
+		"aarch64-unknown-linux-gnu": "equibop-aarch64-unknown-linux-gnu"
 	},
-	"CodePathWin": "oadiscord-x86_64-pc-windows-msvc.exe",
-	"CodePathMac": "oadiscord-x86_64-apple-darwin",
-	"CodePathLin": "oadiscord-x86_64-unknown-linux-gnu",
+	"CodePathWin": "equibop-x86_64-pc-windows-msvc.exe",
+	"CodePathMac": "equibop-x86_64-apple-darwin",
+	"CodePathLin": "equibop-x86_64-unknown-linux-gnu",
 	"Actions": [
 		{
-			"UUID": "me.amankhanna.oadiscord.togglemute",
+			"UUID": "com.garrettfaucher.equibop.togglemute",
 			"Name": "Toggle Mute",
 			"Icon": "actions/mute_0",
 			"Tooltip": "Mute and unmute yourself",
@@ -27,7 +27,7 @@
 			"States": [{ "Image": "actions/mute_0" }, { "Image": "actions/mute_1" }]
 		},
 		{
-			"UUID": "me.amankhanna.oadiscord.toggledeafen",
+			"UUID": "com.garrettfaucher.equibop.toggledeafen",
 			"Name": "Toggle Deafen",
 			"Icon": "actions/deafen_0",
 			"Tooltip": "Deafen and undeafen yourself",
@@ -37,7 +37,7 @@
 			"States": [{ "Image": "actions/deafen_0" }, { "Image": "actions/deafen_1" }]
 		},
 		{
-			"UUID": "me.amankhanna.oadiscord.pushtomute",
+			"UUID": "com.garrettfaucher.equibop.pushtomute",
 			"Name": "Push to Mute",
 			"Icon": "actions/pushtomute_0",
 			"Tooltip": "Mute and unmute yourself by holding down a key",
@@ -48,7 +48,7 @@
 			"States": [{ "Image": "actions/pushtomute_0" }, { "Image": "actions/pushtomute_1" }]
 		},
 		{
-			"UUID": "me.amankhanna.oadiscord.pushtotalk",
+			"UUID": "com.garrettfaucher.equibop.pushtotalk",
 			"Name": "Push to Talk",
 			"Icon": "actions/pushtotalk_0",
 			"Tooltip": "Unmute and mute yourself by holding down a key",
@@ -59,7 +59,7 @@
 			"States": [{ "Image": "actions/pushtotalk_0" }, { "Image": "actions/pushtotalk_1" }]
 		},
 		{
-			"UUID": "me.amankhanna.oadiscord.togglevoiceinputmode",
+			"UUID": "com.garrettfaucher.equibop.togglevoiceinputmode",
 			"Name": "Toggle Voice Input Mode",
 			"Icon": "actions/ptttoggle_0",
 			"Tooltip": "Switch between the Push to Talk and Voice Activity voice input modes",
@@ -69,7 +69,7 @@
 			"States": [{ "Image": "actions/ptttoggle_0" }, { "Image": "actions/ptttoggle_1" }]
 		},
 		{
-			"UUID": "me.amankhanna.oadiscord.togglevideo",
+			"UUID": "com.garrettfaucher.equibop.togglevideo",
 			"Name": "Toggle Video",
 			"Icon": "actions/video_0",
 			"Tooltip": "Start or stop streaming video in the current voice call",
@@ -79,7 +79,7 @@
 			"States": [{ "Image": "actions/video_0" }, { "Image": "actions/video_1" }]
 		},
 		{
-			"UUID": "me.amankhanna.oadiscord.togglescreenshare",
+			"UUID": "com.garrettfaucher.equibop.togglescreenshare",
 			"Name": "Toggle Screen Share",
 			"Icon": "actions/stream_0",
 			"Tooltip": "Start or stop screen sharing in the current voice call",
@@ -89,7 +89,7 @@
 			"States": [{ "Image": "actions/stream_0" }, { "Image": "actions/stream_1" }]
 		},
 		{
-			"UUID": "me.amankhanna.oadiscord.volumecontrol",
+			"UUID": "com.garrettfaucher.equibop.volumecontrol",
 			"Name": "Volume Control",
 			"Icon": "actions/volumeControl",
 			"Tooltip": "Control the volume levels of audio input and output devices",
@@ -99,7 +99,7 @@
 			"States": [{ "Image": "actions/volumeControl" }]
 		},
 		{
-			"UUID": "me.amankhanna.oadiscord.uservolumecontrol",
+			"UUID": "com.garrettfaucher.equibop.uservolumecontrol",
 			"Name": "User Volume Control",
 			"Icon": "actions/userVolumeControl",
 			"Tooltip": "Control the output volume level of another user",
@@ -109,7 +109,7 @@
 			"States": [{ "Image": "actions/userVolumeControl" }]
 		},
 		{
-			"UUID": "me.amankhanna.oadiscord.setaudiodevice",
+			"UUID": "com.garrettfaucher.equibop.setaudiodevice",
 			"Name": "Set Audio Device",
 			"Icon": "actions/headphonesAndMicrophone",
 			"Tooltip": "Set the audio input and output devices used in voice calls",
@@ -119,7 +119,7 @@
 			"States": [{ "Image": "actions/headphonesAndMicrophone" }]
 		},
 		{
-			"UUID": "me.amankhanna.oadiscord.textchannel",
+			"UUID": "com.garrettfaucher.equibop.textchannel",
 			"Name": "Text Channel",
 			"Icon": "actions/textchannel",
 			"Tooltip": "Jump to a specific text channel",
@@ -129,7 +129,7 @@
 			"States": [{ "Image": "actions/textchannel" }]
 		},
 		{
-			"UUID": "me.amankhanna.oadiscord.voicechannel",
+			"UUID": "com.garrettfaucher.equibop.voicechannel",
 			"Name": "Voice Channel",
 			"Icon": "actions/voicechannel_0",
 			"Tooltip": "Join or leave a specific voice channel",
@@ -139,7 +139,7 @@
 			"States": [{ "Image": "actions/voicechannel_0" }, { "Image": "actions/voicechannel_1" }]
 		},
 		{
-			"UUID": "me.amankhanna.oadiscord.soundboard",
+			"UUID": "com.garrettfaucher.equibop.soundboard",
 			"Name": "Soundboard",
 			"Icon": "actions/soundboard",
 			"Tooltip": "Play a sound from the soundboard in the current voice call",
@@ -149,7 +149,7 @@
 			"States": [{ "Image": "actions/soundboard" }]
 		},
 		{
-			"UUID": "me.amankhanna.oadiscord.notifications",
+			"UUID": "com.garrettfaucher.equibop.notifications",
 			"Name": "Notifications",
 			"Icon": "actions/notifications",
 			"Tooltip": "Receive notifications and surface them in the Discord app",

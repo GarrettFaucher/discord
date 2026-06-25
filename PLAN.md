@@ -212,11 +212,13 @@ Feasibility reflects the **Vencord** path. "Verify in DevTools" = confirm the ex
   - → done (baseline): `main` **fast-forwarded to v0.5.0** — lossless (the fork had **0 unique commits**, so
     nothing was discarded; the noted "confirm before discarding" risk did not apply). Confirmed 14 actions in
     the manifest. Work branch **`equibop-port`** created off the new baseline.
-  - → PENDING (rename, deferred): (a) rename the GitHub repo + local dir `discord`→`streamdeck-equibop` is a
-    **manual user step** (renaming the cwd mid-session is disruptive; GitHub rename needs the user). (b) The
-    `Cargo.toml` package + manifest `CodePaths` binary rename is intentionally deferred to land **together**
-    with T1.1 / T4.2 / T5.1 so the tree stays buildable at every step (renaming the package alone would
-    desync the manifest's `oadiscord-*` binary names).
+  - → done (in-repo identity): the **package/binary/manifest/PI/UUID rebrand is complete** as part of T7.4
+    (`oadiscord`→`equibop`, `me.amankhanna.oadiscord.*`→`com.garrettfaucher.equibop.*`, Author/Name/Category).
+    `cargo build --release` and `build.sh` both succeed under the new identity.
+  - → PENDING (only the *names of the containers*): renaming the **GitHub repo** `discord`→`streamdeck-equibop`
+    and the **local dir** `/home/garrett/git/discord`→`…/streamdeck-equibop` remain a **manual user step** — the
+    GitHub rename needs the user (no `gh` CLI here) and renaming the cwd mid-session is disruptive. Neither affects
+    the built plugin's identity, which is already fully `com.garrettfaucher.equibop` / `equibop`.
 - [x] **T0.4 (V)** Scaffold the Equibop userplugin repo.
   - Files: `index.tsx`, `README.md`, `LICENSE`, `PROTOCOL.md`.
   - Do: minimal `definePlugin({name:"EquibopOpenDeck",description,authors})`; README documents the build-from-
@@ -370,16 +372,15 @@ Feasibility reflects the **Vencord** path. "Verify in DevTools" = confirm the ex
     needed `deno install` — the gitignored `deno.lock`/`node_modules` were stale at `@openaction/svelte-pi@1.0.1`;
     a fresh install resolves the `^1.1.0` constraint to 1.1.0 (which exports `actionInfo`/`eventTarget`). A clean
     clone is unaffected.
-- [~] **T4.2 (R)** Rebrand PI package.
+- [x] **T4.2 (R)** Rebrand PI package.
   - Files: `pi/package.json`. Do: rename `oadiscord-pi`→`equibop-pi`; rebuild; confirm `assets/pi/*` regenerate.
     Deps: T4.1. Accept: PI builds; generated HTML references the new bundle.
-  - → deferred: intentionally batched with the **coordinated rename** (T0.3 / T5.1 / T7.4). The Cargo binary is
-    still `oadiscord`, the manifest is still `me.amankhanna.oadiscord.*` / Author "nekename", so renaming only the
-    PI package now would leave a half-renamed identity. (Note: Vite output bundles are content-hash-named, so the
-    package `name` does not actually appear in the generated HTML — this task is purely cosmetic.)
+  - → done with the coordinated rename (T7.4): `pi/package.json` name `oadiscord-pi`→`equibop-pi`; PI rebuilt via
+    `build.sh` and reinstalled. (Vite output bundles are content-hash-named so the package `name` never appears in the
+    generated HTML — purely cosmetic, but now consistent with the rest of the identity.)
 
 ### Phase 5 — MVP build, package & end-to-end verification
-- [~] **T5.1 (R)** Build/package the Rust plugin.
+- [x] **T5.1 (R)** Build/package the Rust plugin.
   - Files: `build.sh`, `.github/workflows/build.yml`. Do: binary base name → `equibop`; ensure manifest
     `CodePaths` match; `./build.sh <out> equibop <triple>` installs to `~/.config/opendeck/plugins/`. Deps: T2.*,T4.*.
     Accept: bundle builds; CI green.
@@ -389,8 +390,11 @@ Feasibility reflects the **Vencord** path. "Verify in DevTools" = confirm the ex
     stale Client ID/Secret). **Fixed a packaging bug:** `build.sh` did not purge `assets/pi` before building, so a
     removed PI route/component shipped as an **orphan chunk** (the old Client-Secret UI was still present in the
     first install); added `rm -rf assets/pi` before the PI build. ⚠️ env note: run `cd pi && deno install` first
-    if the local `deno.lock` is stale (see T4.1). **Still pending:** binary/package rename → `equibop` (with the
-    coordinated rename, T0.3/T7.4) and the GitHub Actions CI.
+    if the local `deno.lock` is stale (see T4.1). **Rename now done (T7.4):** Cargo package + binary base →
+    `equibop`, installed via `./build.sh ~/.config/opendeck/plugins/com.garrettfaucher.equibop.sdPlugin equibop
+    x86_64-unknown-linux-gnu`. The GitHub Actions CI (`.github/workflows/build.yml`) derives the artifact name from
+    `cargo metadata` package name, so it auto-produces `equibop-<triple>` matching the manifest `CodePaths` — no
+    workflow edit needed.
 - [ ] **T5.2 (V)** Document + verify the Equibop build.
   - Files: `README.md`. Do: reproducible steps to compile the plugin inside an Equibop/Equicord checkout. Deps: T3.*.
     Accept: plugin compiles and shows in the plugin list after restart.
@@ -455,9 +459,16 @@ Feasibility reflects the **Vencord** path. "Verify in DevTools" = confirm the ex
     Wayland security requirement (the same portal Discord's own "Share Your Screen" triggers) and cannot be bypassed
     from a renderer plugin. **Stop is fully headless.** On X11 unattended start may work. So: not a pure
     one-press-no-dialog start on Wayland, but the button genuinely starts/stops Go Live. Build-verified; awaiting live test.
-- [ ] **T7.4 (R)** Final rebrand/UUIDs — new UUID namespace (e.g. `com.garrettfaucher.equibop.<suffix>`) across
+- [x] **T7.4 (R)** Final rebrand/UUIDs — new UUID namespace (e.g. `com.garrettfaucher.equibop.<suffix>`) across
   `src/actions/*` and `assets/manifest.json` (`Name`,`Author`,`CodePaths`, all action UUIDs); swap icons if
   desired. Deps: parity actions done. Accept: manifest UUIDs match Rust; plugin loads under the new identity.
+  - → done: identity rebranded `me.amankhanna.oadiscord` → **`com.garrettfaucher.equibop`** (matches the user's other
+    plugins). All 14 action UUIDs renamed in `src/actions/*` AND `assets/manifest.json` (**verified exact 14/14 match**);
+    manifest `Name`→"Equibop", `Author`→"Garrett Faucher", `Category`→"Equibop", binary base `oadiscord-*`→`equibop-*`.
+    Built + installed to `~/.config/opendeck/plugins/com.garrettfaucher.equibop.sdPlugin/`; **old plugin folder + stale
+    settings removed and the old running process killed** (port 6789 freed). ⚠️ **User chose to orphan existing buttons**
+    — the placed Discord buttons in profile `Default.json` reference the old UUIDs and must be re-added under the new
+    "Equibop" category after an OpenDeck restart. Icons unchanged (kept the existing art).
 
 ### Phase 8 — Polish
 - [ ] **T8.1** Reconnection/port-change/edge-case hardening (port change restarts server + client reconnects;
@@ -570,6 +581,13 @@ Feasibility reflects the **Vencord** path. "Verify in DevTools" = confirm the ex
   `orbolayBridge`, not guessed) + synthesis; the plugin **compiles clean into dist/equibop/renderer.js** (`pnpm build`).
   **T7.3 Go Live research resolved**: feasible via `STREAM_START`/`STREAM_STOP`; Wayland pops the OS source picker on
   start (unavoidable), stop is headless. The **R side needed no changes** (already complete). Marked T3.1/T3.2 `[x]`,
-  T3.3/T3.4/T5.3/T6.1–T6.5/T7.1–T7.3 `[~]` (built + source-verified, awaiting the user's live test). Still deferred:
-  **T0.3 rename**, **T4.2/T7.4 rebrand** (would change UUIDs and break the user's existing button layout — do as a
-  deliberate migration), **T5.2** (V build docs), **T8.x** polish.
+  T3.3/T3.4/T5.3/T6.1–T6.5/T7.1–T7.3 `[~]` (built + source-verified, awaiting the user's live test).
+- _session 3 (cont.) — identity rebrand_ — at the user's go-ahead (they chose to **orphan their existing buttons**),
+  did the full **T7.4 rebrand**: `me.amankhanna.oadiscord`→**`com.garrettfaucher.equibop`** (all 14 action UUIDs,
+  verified 14/14 manifest↔Rust match), binary/package `oadiscord`→`equibop`, PI package `oadiscord-pi`→`equibop-pi`
+  (T4.2), manifest Name/Author/Category→Equibop / Garrett Faucher / Equibop, README + build.sh usage updated. Built +
+  installed to `com.garrettfaucher.equibop.sdPlugin`; removed the old plugin folder + stale settings + killed the old
+  process. CI needs no edit (artifact name is `cargo metadata`-driven). **T7.4/T4.2/T5.1 → `[x]`; T0.3 in-repo identity
+  done** (only the GitHub-repo/local-dir *names* remain — a manual user step). Still open: **T5.2** (V build docs),
+  **T8.x** polish, and live-test promotion of the `[~]` action tasks. **User must restart OpenDeck** to load the
+  renamed plugin and re-add buttons under the new "Equibop" category.

@@ -59,7 +59,7 @@ pub struct ChannelActionSettings {
 pub struct TextChannelAction;
 #[async_trait]
 impl Action for TextChannelAction {
-	const UUID: ActionUuid = "me.amankhanna.oadiscord.textchannel";
+	const UUID: ActionUuid = "com.garrettfaucher.equibop.textchannel";
 	type Settings = ChannelActionSettings;
 
 	async fn property_inspector_did_appear(
@@ -108,7 +108,7 @@ async fn sync_voice_channel_state(
 pub struct VoiceChannelAction;
 #[async_trait]
 impl Action for VoiceChannelAction {
-	const UUID: ActionUuid = "me.amankhanna.oadiscord.voicechannel";
+	const UUID: ActionUuid = "com.garrettfaucher.equibop.voicechannel";
 	type Settings = ChannelActionSettings;
 
 	async fn will_appear(

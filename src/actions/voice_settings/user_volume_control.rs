@@ -106,7 +106,7 @@ async fn send_users_to_pi(instance: &Instance) -> OpenActionResult<()> {
 pub struct UserVolumeControlAction;
 #[async_trait]
 impl Action for UserVolumeControlAction {
-	const UUID: ActionUuid = "me.amankhanna.oadiscord.uservolumecontrol";
+	const UUID: ActionUuid = "com.garrettfaucher.equibop.uservolumecontrol";
 	type Settings = UserVolumeControlSettings;
 
 	async fn will_appear(

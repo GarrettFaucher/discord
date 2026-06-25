@@ -67,7 +67,7 @@ async fn adjust_volume(
 pub struct VolumeControlAction;
 #[async_trait]
 impl Action for VolumeControlAction {
-	const UUID: ActionUuid = "me.amankhanna.oadiscord.volumecontrol";
+	const UUID: ActionUuid = "com.garrettfaucher.equibop.volumecontrol";
 	type Settings = VolumeControlSettings;
 
 	async fn key_up(&self, instance: &Instance, settings: &Self::Settings) -> OpenActionResult<()> {

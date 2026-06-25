@@ -102,7 +102,7 @@ pub async fn send_available_devices_to_pi(instance: &Instance) -> OpenActionResu
 pub struct SetAudioDeviceAction;
 #[async_trait]
 impl Action for SetAudioDeviceAction {
-	const UUID: ActionUuid = "me.amankhanna.oadiscord.setaudiodevice";
+	const UUID: ActionUuid = "com.garrettfaucher.equibop.setaudiodevice";
 	type Settings = SetAudioDeviceSettings;
 
 	async fn will_appear(

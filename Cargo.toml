@@ -1,5 +1,5 @@
 [package]
-name = "oadiscord"
+name = "equibop"
 edition = "2024"
 
 [dependencies]
