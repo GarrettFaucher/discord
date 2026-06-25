@@ -459,6 +459,22 @@ Feasibility reflects the **Vencord** path. "Verify in DevTools" = confirm the ex
     Wayland security requirement (the same portal Discord's own "Share Your Screen" triggers) and cannot be bypassed
     from a renderer plugin. **Stop is fully headless.** On X11 unattended start may work. So: not a pure
     one-press-no-dialog start on Wayland, but the button genuinely starts/stops Go Live. Build-verified; awaiting live test.
+  - → **DEEP-DIVE VERIFIED + HARDENED (V, session 4)** against current Equibop `main` (`src/main/screenShare.ts`,
+    `src/main/constants.ts`, `src/renderer/patches/screenShareFixes.ts`) via a 3-agent research workflow. Confirmed the
+    exact flow: our `startStream` → Discord `getDisplayMedia` → Equibop's main-process `setDisplayMediaRequestHandler`
+    → `desktopCapturer.getSources`. **On Wayland that `getSources` (inside Chromium) is what pops the KDE portal**;
+    Equibop then auto-takes `sources[0]` and SUPPRESSES its own picker (`skipPicker:true`) — **our `sourceId` is
+    ignored on Wayland** (only honoured on the X11 branch, which shows Equibop's *own* in-app picker, `skipPicker:false`).
+    **No `restore_token`/`persist_mode` exists in Equibop, Vesktop, or Electron's getDisplayMedia path** (zero matches),
+    so a dialog-free one-time-grant is NOT achievable from a userplugin; the only dialog-free route is X11/XWayland,
+    which merely swaps the OS portal for Equibop's in-app picker (also not headless). **Conclusion: on this user's
+    KDE/Wayland, "works to some extent" = one-tap start + one OS-dialog confirmation; headless stop. This is the
+    ceiling for a renderer plugin.** Hardening shipped: (R1) post-start reconcile — after `startStream`, a ~3 s timer
+    pushes ground-truth state so a *cancelled* portal clears a stuck "live" button; (R2) `previewDisabled` now reads
+    the user's real `voiceAndVideo/disableStreamPreviews` setting via `getUserSettingLazy` instead of hardcoding
+    `false`; (R3) `screenShareStarting` in-flight guard debounces double-taps during the dialog window (cleared on
+    `STREAM_CREATE`/`STREAM_DELETE`); (R4) `enumerateSources` retries the 3-arg `getDesktopSources` form on empty and
+    prefers a `screen:`-type source. Build-verified (`pnpm build` green).
 - [x] **T7.4 (R)** Final rebrand/UUIDs — new UUID namespace (e.g. `com.garrettfaucher.equibop.<suffix>`) across
   `src/actions/*` and `assets/manifest.json` (`Name`,`Author`,`CodePaths`, all action UUIDs); swap icons if
   desired. Deps: parity actions done. Accept: manifest UUIDs match Rust; plugin loads under the new identity.
