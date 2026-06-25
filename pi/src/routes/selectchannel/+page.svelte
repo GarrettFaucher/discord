@@ -1,66 +1,72 @@
 <script lang="ts">
 	import {
 		actionSettings,
+		actionInfo,
 		eventTarget,
-		sendToPlugin,
 	} from "@openaction/svelte-pi";
 
 	import ApplicationSettings from "$lib/ApplicationSettings.svelte";
-
-	interface Guild {
-		id: string;
-		name: string;
-	}
 
 	interface Channel {
 		id: string;
 		name: string;
 	}
 
+	interface Guild {
+		id: string;
+		name: string;
+		voice: Channel[];
+		text: Channel[];
+	}
+
 	let guilds: Guild[] = $state([]);
-	let channels: Channel[] = $state([]);
-	let loadingGuilds = $state(false);
-	let loadingChannels = $state(false);
+
+	// This PI is shared by the Voice Channel and Text Channel actions; the action UUID decides which
+	// nested channel list (voice vs text) of each guild to show.
+	let isVoice = $derived(($actionInfo?.action ?? "").endsWith("voicechannel"));
 
 	let selectedGuild = $derived($actionSettings.guild_id ?? "");
 	let selectedChannel = $derived($actionSettings.channel_id ?? "");
 
+	let channels: Channel[] = $derived.by(() => {
+		const guild = guilds.find((g) => g.id === selectedGuild);
+		if (!guild) return [];
+		return (isVoice ? guild.voice : guild.text) ?? [];
+	});
+
+	// The server now sends the full guild list with nested voice/text channels, so there is no longer
+	// a per-guild channel request round-trip.
 	eventTarget.addEventListener("sendToPropertyInspector", (event: any) => {
 		const payload = event.detail?.payload ?? {};
 
 		if (Array.isArray(payload.guilds)) {
 			guilds = payload.guilds;
-			loadingGuilds = false;
 			if (
 				(!selectedGuild || !guilds.some((g) => g.id === selectedGuild)) &&
 				guilds.length > 0
 			) {
-				$actionSettings = { ...$actionSettings, guild_id: guilds[0].id };
+				$actionSettings = {
+					...$actionSettings,
+					guild_id: guilds[0].id,
+					channel_id: "",
+				};
 			}
-
-			loadingChannels = true;
-			sendToPlugin({ action: "request_channels", guild_id: selectedGuild });
 		}
+	});
 
-		if (Array.isArray(payload.channels)) {
-			channels = payload.channels;
-			loadingChannels = false;
-			if (
-				(!selectedChannel || !channels.some((c) => c.id === selectedChannel)) &&
-				channels.length > 0
-			) {
-				$actionSettings = { ...$actionSettings, channel_id: channels[0].id };
-			}
+	// Default the channel to the first available when none is selected (or the selection is stale).
+	$effect(() => {
+		if (
+			channels.length > 0 &&
+			(!selectedChannel || !channels.some((c) => c.id === selectedChannel))
+		) {
+			$actionSettings = { ...$actionSettings, channel_id: channels[0].id };
 		}
 	});
 
 	function updateGuild(event: Event) {
 		const guild_id = (event.target as HTMLSelectElement).value;
 		$actionSettings = { ...$actionSettings, guild_id, channel_id: "" };
-
-		channels = [];
-		loadingChannels = true;
-		sendToPlugin({ action: "request_channels", guild_id: selectedGuild });
 	}
 
 	function updateChannel(event: Event) {
@@ -78,7 +84,6 @@
 				value={selectedGuild}
 				onchange={updateGuild}
 				class="w-full"
-				disabled={loadingGuilds}
 			>
 				{#if guilds.length === 0}
 					<option value="" disabled>No servers available</option>
@@ -93,14 +98,16 @@
 	</div>
 
 	<div class="grid grid-cols-[250px_1fr] items-center">
-		<label for="channel" class="text-sm">Channel</label>
+		<label for="channel" class="text-sm">
+			{isVoice ? "Voice channel" : "Text channel"}
+		</label>
 		<div class="select-wrapper">
 			<select
 				id="channel"
 				value={selectedChannel}
 				onchange={updateChannel}
 				class="w-full"
-				disabled={loadingChannels || !selectedGuild}
+				disabled={!selectedGuild}
 			>
 				{#if !selectedGuild}
 					<option value="" disabled>Select a server first</option>
