@@ -320,25 +320,35 @@ Feasibility reflects the **Vencord** path. "Verify in DevTools" = confirm the ex
     dropped (the client now speaks Discord's native 0–100 / 0–200 scale).
 
 ### Phase 3 — Vencord userplugin: WS client + MVP handlers  (V)
-- [ ] **T3.1 (V)** WS client lifecycle.
+- [~] **T3.1 (V)** WS client lifecycle.
   - Files: `index.tsx`. Do: model on Vencord `src/plugins/arRPC.web/index.tsx` — connect in `start()`,
     `close()` in `stop()`, `onopen`→send `hello` then initial `stateUpdate`, `onmessage`→dispatch by `type`,
     `onclose`/`onerror`→reconnect with backoff (~5s). Deps: T0.4. Accept: with R running, R logs `hello` and
     receives the initial `stateUpdate`.
-- [ ] **T3.2 (V)** Voice command handlers + verify finders in DevTools.
+- [~] **T3.2 (V)** Voice command handlers + verify finders in DevTools.
   - Files: `index.tsx`. Do: `const Media = findByProps("setSelfMute","setSelfDeaf")` (fallback
     `findByProps("toggleSelfMute","toggleSelfDeaf")`); `MediaEngineStore` from `@webpack/common`. Implement
     `setMute`/`setDeafen`/`toggleMute`/`toggleDeafen` and `requestState`. **Verify the finder resolves in
     DevTools.** Deps: T3.1. Accept: each command toggles the real Discord mute/deafen indicator.
-- [ ] **T3.3 (V)** Channel command handlers.
+- [~] **T3.3 (V)** Channel command handlers.
   - Files: `index.tsx`. Do: `const VoiceActions = findByPropsLazy("selectVoiceChannel")`; implement
     `selectVoiceChannel(id|null)` and `selectTextChannel` (verify the text-nav action — `NavigationRouter`/
     channel select); implement `requestGuilds` reading `GuildStore`/`ChannelStore`/`SortedGuildStore`. Deps: T3.1.
     Accept: commands join/leave voice and jump text channels; `guilds` event populates the R-side cache.
-- [ ] **T3.4 (V)** State feedback via Flux.
+- [~] **T3.4 (V)** State feedback via Flux.
   - Files: `index.tsx`. Do: `flux:{ AUDIO_TOGGLE_SELF_MUTE(){…}, AUDIO_TOGGLE_SELF_DEAF(){…}, VOICE_STATE_UPDATES(){…} }`
     handlers read `MediaEngineStore` + `SelectedChannelStore.getVoiceChannelId()` and push `stateUpdate`. Deps: T3.1.
     Accept: muting from Discord's own UI flips the stream-deck button state.
+  - → written (UNVERIFIED), `equibop-opendeck` commit `c21161a` — covers **T3.1–T3.4**: WS lifecycle
+    (hello/dispatch/~5s reconnect/clean stop), MVP voice handlers (`setSelfMute`/`setSelfDeaf` + toggles via
+    `MediaEngineStore`), channel handlers (`selectVoiceChannel`; `selectTextChannel` via `NavigationRouter`,
+    resolving guild from channel when omitted), `requestGuilds` building nested voice/text from
+    `GuildStore`/`ChannelStore`, and Flux `AUDIO_TOGGLE_SELF_MUTE`/`SELF_DEAF`/`VOICE_STATE_UPDATES` → `stateUpdate`.
+    Tier-2/3 commands are accepted but logged as not-implemented (Phase 6/7). ⚠️ **Left `[~]` not `[x]` because it
+    cannot be built/run here** — every webpack finder + store method (`setSelfMute`/`setSelfDeaf`,
+    `selectVoiceChannel`, `NavigationRouter.transitionTo`, `MediaEngineStore.getMode`,
+    `getMutableGuildChannelsForGuild`, the Flux dispatch names) is best-known and **must be confirmed in DevTools**
+    (marked `VERIFY` in `index.tsx`). Promote to `[x]` once verified during the **Phase 5 MVP e2e (T5.3)**.
 
 ### Phase 4 — Rust PI rework  (R)
 - [x] **T4.1 (R)** Replace the Discord-app PI with a bridge-port PI **and migrate the channel PI**.
