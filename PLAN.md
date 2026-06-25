@@ -202,7 +202,7 @@ Feasibility reflects the **Vencord** path. "Verify in DevTools" = confirm the ex
   - Deps: T0.3 (so it lands on the 0.5.0 baseline). Accept: PLAN.md committed; checkboxes reflect reality.
   - → done: PLAN.md now lives at repo root on branch `equibop-port` atop the v0.5.0 baseline. **This file is
     the source of truth from here on** — update it, not the `~/.claude/plans` copy.
-- [~] **T0.3 (R)** Rebase the fork onto upstream **v0.5.0** and rename.
+- [x] **T0.3 (R)** Rebase the fork onto upstream **v0.5.0** and rename.
   - Files: whole repo. Do: `git fetch upstream`; advance `main` to upstream **v0.5.0** (`71171b3…`) as the new
     baseline (recommended: reset/rebase the fork onto v0.5.0 — the only fork-unique commit is the 0.2.x PI
     style sync, which 0.5.0 supersedes; confirm before discarding). Rename GitHub repo + local dir
@@ -212,6 +212,11 @@ Feasibility reflects the **Vencord** path. "Verify in DevTools" = confirm the ex
   - → done (baseline): `main` **fast-forwarded to v0.5.0** — lossless (the fork had **0 unique commits**, so
     nothing was discarded; the noted "confirm before discarding" risk did not apply). Confirmed 14 actions in
     the manifest. Work branch **`equibop-port`** created off the new baseline.
+  - → done (rename): Cargo package + binary base are `equibop` (T7.4); manifest identity `com.garrettfaucher.equibop`.
+    **GitHub repo renamed `discord` → `streamdeck-equibop`** (user, 2026-06-25); local `origin` re-pointed to
+    `git@github.com:GarrettFaucher/streamdeck-equibop.git` (GitHub 301-redirects the old path). Only cosmetic
+    remainder: the **local checkout dir** is still `/home/garrett/git/discord` (left as-is to avoid breaking the
+    active session; rename at leisure with `git mv`-free `mv` — nothing references the dir name).
   - → done (in-repo identity): the **package/binary/manifest/PI/UUID rebrand is complete** as part of T7.4
     (`oadiscord`→`equibop`, `me.amankhanna.oadiscord.*`→`com.garrettfaucher.equibop.*`, Author/Name/Category).
     `cargo build --release` and `build.sh` both succeed under the new identity.
@@ -394,9 +399,13 @@ Feasibility reflects the **Vencord** path. "Verify in DevTools" = confirm the ex
     x86_64-unknown-linux-gnu`. The GitHub Actions CI (`.github/workflows/build.yml`) derives the artifact name from
     `cargo metadata` package name, so it auto-produces `equibop-<triple>` matching the manifest `CodePaths` — no
     workflow edit needed.
-- [ ] **T5.2 (V)** Document + verify the Equibop build.
+- [x] **T5.2 (V)** Document + verify the Equibop build.
   - Files: `README.md`. Do: reproducible steps to compile the plugin inside an Equibop/Equicord checkout. Deps: T3.*.
     Accept: plugin compiles and shows in the plugin list after restart.
+  - → done: `equibop-opendeck/README.md` written via a recon→draft→verify workflow (every path/command/name
+    checked against the live Equicord checkout). Documents the no-hot-reload build (`pnpm i && pnpm build` in the
+    Equicord tree → restart/Ctrl+R), the `~/.config/equibop/state.json` `equicordDir` load path, Wayland requirement,
+    the supported-command table, port config, and troubleshooting. Build itself confirmed green this session.
 - [x] **T5.3 (R+V)** MVP end-to-end test.
   - Do: install both sides; in OpenDeck verify (1) Toggle Mute, (2) Toggle Deafen, (3) Push to Mute, (4) Push to
     Talk, (5) Voice Channel join/leave, (6) Text Channel jump — all act in Equibop AND reflect button state;
@@ -523,7 +532,12 @@ Feasibility reflects the **Vencord** path. "Verify in DevTools" = confirm the ex
 ### Phase 8 — Polish
 - [ ] **T8.1** Reconnection/port-change/edge-case hardening (port change restarts server + client reconnects;
   `channelId:null` when not in voice; rapid PTT no desync — echoed `stateUpdate` corrects optimistic state).
-- [ ] **T8.2** READMEs (both repos): architecture diagram, install, troubleshooting, link PROTOCOL.md + PLAN.md.
+- [x] **T8.2** READMEs (both repos): architecture diagram, install, troubleshooting, link PROTOCOL.md + PLAN.md.
+  - → done: both READMEs written + adversarially verified against the live repos (recon→draft→verify workflow).
+    `streamdeck-equibop/README.md` (server half: action table, build.sh runbook, setup, troubleshooting) and
+    `equibop-opendeck/README.md` (client half: command table, build-from-source, config, troubleshooting); each has
+    an ASCII architecture diagram and links PROTOCOL.md (+ PLAN.md from the R side). Cross-repo GitHub links use the
+    new `streamdeck-equibop` name. Verifier fixed the `setInputDevice`/`setOutputDevice` wire field (`deviceId`).
 - [ ] **T8.3** Release: tag, build artifacts for all targets, publish.
 
 ---
