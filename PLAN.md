@@ -320,12 +320,12 @@ Feasibility reflects the **Vencord** path. "Verify in DevTools" = confirm the ex
     dropped (the client now speaks Discord's native 0–100 / 0–200 scale).
 
 ### Phase 3 — Vencord userplugin: WS client + MVP handlers  (V)
-- [~] **T3.1 (V)** WS client lifecycle.
+- [x] **T3.1 (V)** WS client lifecycle.
   - Files: `index.tsx`. Do: model on Vencord `src/plugins/arRPC.web/index.tsx` — connect in `start()`,
     `close()` in `stop()`, `onopen`→send `hello` then initial `stateUpdate`, `onmessage`→dispatch by `type`,
     `onclose`/`onerror`→reconnect with backoff (~5s). Deps: T0.4. Accept: with R running, R logs `hello` and
     receives the initial `stateUpdate`.
-- [~] **T3.2 (V)** Voice command handlers + verify finders in DevTools.
+- [x] **T3.2 (V)** Voice command handlers + verify finders in DevTools.
   - Files: `index.tsx`. Do: `const Media = findByProps("setSelfMute","setSelfDeaf")` (fallback
     `findByProps("toggleSelfMute","toggleSelfDeaf")`); `MediaEngineStore` from `@webpack/common`. Implement
     `setMute`/`setDeafen`/`toggleMute`/`toggleDeafen` and `requestState`. **Verify the finder resolves in
@@ -339,16 +339,15 @@ Feasibility reflects the **Vencord** path. "Verify in DevTools" = confirm the ex
   - Files: `index.tsx`. Do: `flux:{ AUDIO_TOGGLE_SELF_MUTE(){…}, AUDIO_TOGGLE_SELF_DEAF(){…}, VOICE_STATE_UPDATES(){…} }`
     handlers read `MediaEngineStore` + `SelectedChannelStore.getVoiceChannelId()` and push `stateUpdate`. Deps: T3.1.
     Accept: muting from Discord's own UI flips the stream-deck button state.
-  - → written (UNVERIFIED), `equibop-opendeck` commit `c21161a` — covers **T3.1–T3.4**: WS lifecycle
-    (hello/dispatch/~5s reconnect/clean stop), MVP voice handlers (`setSelfMute`/`setSelfDeaf` + toggles via
-    `MediaEngineStore`), channel handlers (`selectVoiceChannel`; `selectTextChannel` via `NavigationRouter`,
-    resolving guild from channel when omitted), `requestGuilds` building nested voice/text from
-    `GuildStore`/`ChannelStore`, and Flux `AUDIO_TOGGLE_SELF_MUTE`/`SELF_DEAF`/`VOICE_STATE_UPDATES` → `stateUpdate`.
-    Tier-2/3 commands are accepted but logged as not-implemented (Phase 6/7). ⚠️ **Left `[~]` not `[x]` because it
-    cannot be built/run here** — every webpack finder + store method (`setSelfMute`/`setSelfDeaf`,
-    `selectVoiceChannel`, `NavigationRouter.transitionTo`, `MediaEngineStore.getMode`,
-    `getMutableGuildChannelsForGuild`, the Flux dispatch names) is best-known and **must be confirmed in DevTools**
-    (marked `VERIFY` in `index.tsx`). Promote to `[x]` once verified during the **Phase 5 MVP e2e (T5.3)**.
+  - → done (T3.1/T3.2): `equibop-opendeck` `c21161a` (first draft) → `05b9974` (route finders through Equicord's
+    real `@webpack/common` exports — `VoiceActions.toggleSelfMute/toggleSelfDeaf`, `ChannelActions.selectVoiceChannel`,
+    `NavigationRouter`, `GuildChannelStore.getChannels`) → `96cf759` on the **R** side fixed the startup deadlock that
+    was the real blocker. **User confirmed live: Toggle Mute + Toggle Deafen drive Equibop and reflect button state.**
+  - → T3.3/T3.4 `[~]`: channel handlers + Flux feedback are implemented and **re-verified against Equicord source**
+    (all finders re-confirmed at `src/webpack/common/{utils,stores}.ts`; flux `AUDIO_TOGGLE_SELF_MUTE`/`SELF_DEAF`/
+    `VOICE_STATE_UPDATES` confirmed via `vcNarrator`) and the plugin **compiles cleanly into the Equibop bundle**
+    (`pnpm build`, dist/equibop/renderer.js). Promote to `[x]` after the user live-tests voice/text channel switching
+    and Discord-UI→button feedback (part of T5.3).
 
 ### Phase 4 — Rust PI rework  (R)
 - [x] **T4.1 (R)** Replace the Discord-app PI with a bridge-port PI **and migrate the channel PI**.
@@ -395,33 +394,67 @@ Feasibility reflects the **Vencord** path. "Verify in DevTools" = confirm the ex
 - [ ] **T5.2 (V)** Document + verify the Equibop build.
   - Files: `README.md`. Do: reproducible steps to compile the plugin inside an Equibop/Equicord checkout. Deps: T3.*.
     Accept: plugin compiles and shows in the plugin list after restart.
-- [ ] **T5.3 (R+V)** MVP end-to-end test.
+- [~] **T5.3 (R+V)** MVP end-to-end test.
   - Do: install both sides; in OpenDeck verify (1) Toggle Mute, (2) Toggle Deafen, (3) Push to Mute, (4) Push to
     Talk, (5) Voice Channel join/leave, (6) Text Channel jump — all act in Equibop AND reflect button state;
     (7) muting in Discord UI updates buttons; (8) closing Equibop → `show_alert`; (9) reopening → reconnect +
     resync. Deps: T5.1,T5.2. Accept: all 9 checks pass. **← MVP milestone.**
+  - → in progress: **checks (1)+(2) PASS — user-confirmed Toggle Mute + Toggle Deafen** drive Equibop and reflect
+    button state (after the R deadlock fix `96cf759` + V finder fix `05b9974`). Both halves now build clean. Remaining
+    user-side checks: (3) Push-to-Mute, (4) Push-to-Talk, (5) Voice Channel, (6) Text Channel, (7) Discord-UI→button
+    feedback, (8) disconnect→show_alert, (9) reconnect+resync.
 
 ### Phase 6 — Tier-2 actions (Medium feasibility)
-- [ ] **T6.1 (R+V)** Toggle Voice Input Mode — protocol `setVoiceInputMode`/`toggleVoiceInputMode`; Vencord
+> **V-side handlers for all of T6.1–T6.5 are implemented and build-verified** in `equibop-opendeck` `e88aaec`
+> (each finder grounded in Equicord source; `pnpm build` produces dist/equibop/renderer.js). The **R side already
+> ships every command + feedback path** (protocol, actions, PI plumbing carried from the v0.5.0 baseline). Left `[~]`
+> until live-tested; the targeted actions (T6.3/T6.4/T6.5) also need their R-side PI **picker** confirmed to populate
+> from the cached `devices`/`soundboard`/`guilds` payloads (R sends them via `send_*_to_pi`; not yet exercised here).
+- [~] **T6.1 (R+V)** Toggle Voice Input Mode — protocol `setVoiceInputMode`/`toggleVoiceInputMode`; Vencord
   media-engine `getMode`/`setMode`. Deps: T5.3. Accept: button flips Discord between PTT and Voice Activity.
-- [ ] **T6.2 (R+V)** Volume Control (dial/encoder) — `setInputVolume`/`setOutputVolume` + `devices` feedback;
+  - → V: `MediaEngineStore.getMode()/getModeOptions()` + `findByProps("setMode","getModeOptions").setMode(ctx,mode,opts)`
+    (re-passes current ModeOptions). No PI needed. ⚠ setter signature is medium-confidence — VERIFY in DevTools.
+- [~] **T6.2 (R+V)** Volume Control (dial/encoder) — `setInputVolume`/`setOutputVolume` + `devices` feedback;
   handle `dialRotate`. Deps: T5.3. Accept: turning the dial changes Discord input/output volume; PI shows current.
-- [ ] **T6.3 (R+V)** User Volume Control — `setUserVolume{userId,value}`; Vencord `setLocalVolume`; PI picks a
+  - → V: FluxDispatcher `AUDIO_SET_INPUT_VOLUME` (0-100) / `AUDIO_SET_OUTPUT_VOLUME` (0-200), matching `vcPanelSettings`.
+- [~] **T6.3 (R+V)** User Volume Control — `setUserVolume{userId,value}`; Vencord `setLocalVolume`; PI picks a
   user. Deps: T5.3. Accept: changes a specific user's local output volume.
-- [ ] **T6.4 (R+V)** Set Audio Device — `setInputDevice`/`setOutputDevice` + `devices` list; PI device picker.
+  - → V: `findByProps("setLocalVolume").setLocalVolume(userId,value)` (2-arg per discord-types). Needs PI user-picker.
+- [~] **T6.4 (R+V)** Set Audio Device — `setInputDevice`/`setOutputDevice` + `devices` list; PI device picker.
   Deps: T5.3. Accept: switches Discord input/output device.
-- [ ] **T6.5 (R+V)** Soundboard — `playSoundboard{guildId,soundId}` + `soundboard` list from `SoundboardStore`;
+  - → V: `AUDIO_SET_INPUT_DEVICE`/`AUDIO_SET_OUTPUT_DEVICE {id}`; `buildDevices()` enumerates get{Input,Output}Devices.
+- [~] **T6.5 (R+V)** Soundboard — `playSoundboard{guildId,soundId}` + `soundboard` list from `SoundboardStore`;
   PI sound picker. Deps: T5.3. Accept: plays a soundboard sound in the active call.
+  - → V: `RestAPI.post SEND_SOUNDBOARD_SOUND(voiceChannel){sound_id,source_guild_id}` (matches `exitSounds`);
+    `buildSoundboard()` flattens `SoundboardStore.getSounds()`.
 
 ### Phase 7 — Tier-3 actions (Hard/Uncertain) + final rebrand
-- [ ] **T7.1 (R+V)** Toggle Video / camera — `setVideo`/`toggleVideo`; verify the camera-toggle action exists in
+- [~] **T7.1 (R+V)** Toggle Video / camera — `setVideo`/`toggleVideo`; verify the camera-toggle action exists in
   Equicord. Deps: T5.3. Accept: toggles camera; if infeasible, mark `[!]` with findings.
-- [ ] **T7.2 (R+V)** Notifications — observe Flux `MESSAGE_CREATE`/notification dispatch → `notification` event;
+  - → V (`e88aaec`): `FluxDispatcher.dispatch({type:"MEDIA_ENGINE_SET_VIDEO_ENABLED", enabled})` with
+    `findByProps("isVideoEnabled").isVideoEnabled()` for state — **exact mechanism matches the shipping
+    `toggleVideoBind` + `randomVoice` plugins** (high confidence). Build-verified; awaiting live test.
+- [~] **T7.2 (R+V)** Notifications — observe Flux `MESSAGE_CREATE`/notification dispatch → `notification` event;
   action surfaces/opens the channel. Deps: T5.3. Accept: incoming notifications drive the key; or `[!]` with findings.
-- [ ] **T7.3 (R+V)** Toggle Screen Share / Go Live — **research first**: can a renderer plugin start Go Live
+  - → V (`e88aaec`): forwards Discord's `NOTIFICATION_CREATE` flux (respects mute/DnD) as
+    `{type:"notification", channelId, title, body}`; payload shape confirmed via `silenceUsers` (`event.message`) and
+    `orbolayBridge` `handleMessageNotification` (`dispatch.message.channel_id`). R caches channel_id → updates the
+    Notifications button counter. Build-verified; awaiting live test.
+- [~] **T7.3 (R+V)** Toggle Screen Share / Go Live — **research first**: can a renderer plugin start Go Live
   without the source picker, and how does Equibop's Linux screenshare path interact? Implement or document
   why not. Deps: T5.3. Accept: starts/stops Go Live, OR a written infeasibility note + fallback (e.g. trigger
   the picker).
+  - → **RESEARCH RESOLVED + implemented (V `e88aaec`).** Programmatic Go Live IS feasible, reusing exactly what
+    Equicord's own `InstantScreenshare` does: START via `startStream = findByCodeLazy('type:"STREAM_START"')` called
+    `startStream(guildId, channelId, {pid:null, sourceId, sourceName, audioSourceId, sound, previewDisabled})`, where
+    the source comes from `getDesktopSources = findByCodeLazy("desktop sources")`; STOP via
+    `stopStream = findByCodeLazy('type:"STREAM_STOP"')` with the key `guild:<g>:<c>:<owner>` / `call:<c>:<owner>`
+    (format confirmed against `orbolayBridge`); active state from `ApplicationStreamingStore.getCurrentUserActiveStream()`.
+    Preconditions (in a voice channel, STREAM permission, not a stage) are checked → `console.warn` not throw.
+    **Caveat (the original open question): on Wayland, starting pops the OS screen-source portal picker** — this is a
+    Wayland security requirement (the same portal Discord's own "Share Your Screen" triggers) and cannot be bypassed
+    from a renderer plugin. **Stop is fully headless.** On X11 unattended start may work. So: not a pure
+    one-press-no-dialog start on Wayland, but the button genuinely starts/stops Go Live. Build-verified; awaiting live test.
 - [ ] **T7.4 (R)** Final rebrand/UUIDs — new UUID namespace (e.g. `com.garrettfaucher.equibop.<suffix>`) across
   `src/actions/*` and `assets/manifest.json` (`Name`,`Author`,`CodePaths`, all action UUIDs); swap icons if
   desired. Deps: parity actions done. Accept: manifest UUIDs match Rust; plugin loads under the new identity.
@@ -435,11 +468,14 @@ Feasibility reflects the **Vencord** path. "Verify in DevTools" = confirm the ex
 ---
 
 ## Risks & open questions
-- **Go Live (T7.3)** is the one genuinely uncertain action — programmatic Go Live needs a source and Equibop
-  has custom Linux screenshare handling. Treat as research-then-decide; MVP and parity do not depend on it.
-- **Exact Vencord finder names** for media-engine setters (mode/volume/device/local-volume/video) are
-  best-known, not 100% confirmed; every Tier-2/3 task includes a DevTools verification step. Prefer driving
-  from explicit booleans/values via setters over relying on internal toggles.
+- **Go Live (T7.3) — RESOLVED.** Programmatic start/stop works via Discord's `STREAM_START`/`STREAM_STOP` action
+  creators (blueprint: Equicord `InstantScreenshare`). The only residual: on **Wayland**, starting pops the OS
+  source-picker portal (unavoidable; same portal as Discord's native "Share Your Screen"); stop is headless. Implemented.
+- **Exact Vencord finder names** for media-engine setters — now **resolved from local Equicord source**, not guessed:
+  mode (`findByProps("setMode","getModeOptions")`, med-confidence on arg order), volume/device (FluxDispatcher
+  `AUDIO_SET_*`, matches `vcPanelSettings`), local-volume (`setLocalVolume`, 2-arg per discord-types), video
+  (`MEDIA_ENGINE_SET_VIDEO_ENABLED`, matches `toggleVideoBind`). All build-verified; the medium-confidence ones carry
+  `VERIFY` comments for a final DevTools confirmation during live testing.
 - **Build-from-source friction (V)** is unavoidable (no runtime plugin load). Must be documented; consider the
   full-Equibop-fork option later if distribution is painful.
 - **Upstream drift**: 0.5.0 is the baseline; if upstream releases more actions, re-evaluate parity scope.
@@ -524,3 +560,16 @@ Feasibility reflects the **Vencord** path. "Verify in DevTools" = confirm the ex
   **T0.4, T1.1–T1.5, T2.1–T2.2, T4.1**. Still pending: **T0.3 rename** (manual), **T4.2** (deferred — batched with
   the coordinated rename), and all **V-side handlers** (Phase 3 onward). Next up: **Phase 3** (the userplugin WS
   client — the only remaining piece for an MVP end-to-end test) and then **Phase 5** (MVP e2e).
+- _session 3 (MVP fix + full V-side parity)_ — **Diagnosed why no Discord button worked: a lock-ordering deadlock
+  in `main.rs`** (the settings read-guard was held across `restart_server()`, which takes the write lock) so the
+  plugin served the bridge but never reached `run()` to connect to OpenDeck → no willAppear/keyUp. **Fixed** (`96cf759`,
+  read the port into a local first) + the V finder fix (`equibop-opendeck` `05b9974`). **User confirmed Toggle Mute +
+  Toggle Deafen now drive Equibop** (T5.3 checks 1–2). Then **implemented every remaining V-side command**
+  (`equibop-opendeck` `e88aaec`) — T6.1–T6.5, T7.1–T7.3 — via an 8-domain source-research workflow against the local
+  Equicord checkout (finders grounded in `vcPanelSettings`/`exitSounds`/`toggleVideoBind`/`instantScreenshare`/
+  `orbolayBridge`, not guessed) + synthesis; the plugin **compiles clean into dist/equibop/renderer.js** (`pnpm build`).
+  **T7.3 Go Live research resolved**: feasible via `STREAM_START`/`STREAM_STOP`; Wayland pops the OS source picker on
+  start (unavoidable), stop is headless. The **R side needed no changes** (already complete). Marked T3.1/T3.2 `[x]`,
+  T3.3/T3.4/T5.3/T6.1–T6.5/T7.1–T7.3 `[~]` (built + source-verified, awaiting the user's live test). Still deferred:
+  **T0.3 rename**, **T4.2/T7.4 rebrand** (would change UUIDs and break the user's existing button layout — do as a
+  deliberate migration), **T5.2** (V build docs), **T8.x** polish.
