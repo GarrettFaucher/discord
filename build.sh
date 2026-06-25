@@ -8,6 +8,9 @@ if [ $# -ne 3 ]; then
 	exit 1
 fi
 
+# Clear stale PI build output so removed routes/components don't ship as orphan chunks.
+rm -rf assets/pi
+
 cd pi
 deno task build
 cd ..

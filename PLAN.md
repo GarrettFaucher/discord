@@ -380,10 +380,18 @@ Feasibility reflects the **Vencord** path. "Verify in DevTools" = confirm the ex
     package `name` does not actually appear in the generated HTML — this task is purely cosmetic.)
 
 ### Phase 5 — MVP build, package & end-to-end verification
-- [ ] **T5.1 (R)** Build/package the Rust plugin.
+- [~] **T5.1 (R)** Build/package the Rust plugin.
   - Files: `build.sh`, `.github/workflows/build.yml`. Do: binary base name → `equibop`; ensure manifest
     `CodePaths` match; `./build.sh <out> equibop <triple>` installs to `~/.config/opendeck/plugins/`. Deps: T2.*,T4.*.
     Accept: bundle builds; CI green.
+  - → done (build/install path verified): `./build.sh ~/.config/opendeck/plugins/me.amankhanna.oadiscord.sdPlugin
+    oadiscord x86_64-unknown-linux-gnu` builds the PI + release binary and installs cleanly; the installed binary
+    logs `Equibop bridge listening on 127.0.0.1:6789` and the installed PI shows the new **Bridge Port** UI (no
+    stale Client ID/Secret). **Fixed a packaging bug:** `build.sh` did not purge `assets/pi` before building, so a
+    removed PI route/component shipped as an **orphan chunk** (the old Client-Secret UI was still present in the
+    first install); added `rm -rf assets/pi` before the PI build. ⚠️ env note: run `cd pi && deno install` first
+    if the local `deno.lock` is stale (see T4.1). **Still pending:** binary/package rename → `equibop` (with the
+    coordinated rename, T0.3/T7.4) and the GitHub Actions CI.
 - [ ] **T5.2 (V)** Document + verify the Equibop build.
   - Files: `README.md`. Do: reproducible steps to compile the plugin inside an Equibop/Equicord checkout. Deps: T3.*.
     Accept: plugin compiles and shows in the plugin list after restart.
