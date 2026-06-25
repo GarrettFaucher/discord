@@ -7,53 +7,33 @@ pub use set_audio_device::SetAudioDeviceAction;
 pub use user_volume_control::UserVolumeControlAction;
 pub use volume_control::VolumeControlAction;
 
-use crate::client::discord_client;
+use crate::protocol::ServerCommand;
+use crate::ws_server::send_command;
 
 use std::collections::HashMap;
 use std::sync::OnceLock;
 use std::sync::atomic::Ordering::Relaxed;
 
-use discord_ipc_rust::models::send::commands::{SentCommand, SetVoiceSettingsArgs};
-use discord_ipc_rust::models::shared::voice::VoiceSettingsMode;
 use openaction::{Action, ActionUuid, Instance, OpenActionResult, async_trait};
 use tokio::sync::RwLock;
 
-// Last-known voice mode from Discord, updated via RPC events.
-pub fn current_voice_mode() -> &'static RwLock<Option<VoiceSettingsMode>> {
-	static MODE: OnceLock<RwLock<Option<VoiceSettingsMode>>> = OnceLock::new();
+// Last-known voice input mode ("PUSH_TO_TALK" | "VOICE_ACTIVITY"), updated via state feedback.
+pub fn current_voice_mode() -> &'static RwLock<Option<String>> {
+	static MODE: OnceLock<RwLock<Option<String>>> = OnceLock::new();
 	MODE.get_or_init(|| RwLock::new(None))
 }
 
-// Centralize the voice settings RPC call and Stream Deck feedback logic.
-async fn update_voice_setting(
+// Send a command over the bridge, reflecting optimistic button state on success and alerting
+// when no client is connected.
+pub(crate) async fn send_with_state(
 	instance: &Instance,
-	args: SetVoiceSettingsArgs,
-	next_state: usize,
+	command: ServerCommand,
+	next_state: u16,
 ) -> OpenActionResult<()> {
-	// Take the shared IPC client so we can send the voice update command.
-	let mut client_lock = discord_client().write().await;
-	let Some(client) = client_lock.as_mut() else {
-		log::error!("Discord client not initialized");
-		instance.show_alert().await?;
-		return Ok(());
-	};
-
-	// Send the RPC and update the Stream Deck feedback depending on the result.
-	match client
-		.emit_command(&SentCommand::SetVoiceSettings(args))
-		.await
-	{
-		Ok(_) => {
-			// Reflect the new voice state on the button.
-			instance.set_state(next_state as u16).await?;
-		}
-		Err(e) => {
-			log::error!("Failed to update voice state: {}", e);
-			instance.show_alert().await?;
-		}
+	match send_command(command).await {
+		Ok(()) => instance.set_state(next_state).await,
+		Err(()) => instance.show_alert().await,
 	}
-
-	Ok(())
 }
 
 pub struct ToggleMuteAction;
@@ -67,15 +47,10 @@ impl Action for ToggleMuteAction {
 		instance: &Instance,
 		_settings: &Self::Settings,
 	) -> OpenActionResult<()> {
-		let current_state = instance.current_state_index.load(Relaxed);
-		let new_mute = current_state == 0;
-
-		update_voice_setting(
+		let new_mute = instance.current_state_index.load(Relaxed) == 0;
+		send_with_state(
 			instance,
-			SetVoiceSettingsArgs {
-				mute: Some(new_mute),
-				..Default::default()
-			},
+			ServerCommand::SetMute { value: new_mute },
 			if new_mute { 1 } else { 0 },
 		)
 		.await
@@ -93,15 +68,10 @@ impl Action for ToggleDeafenAction {
 		instance: &Instance,
 		_settings: &Self::Settings,
 	) -> OpenActionResult<()> {
-		let current_state = instance.current_state_index.load(Relaxed);
-		let new_deaf = current_state == 0;
-
-		update_voice_setting(
+		let new_deaf = instance.current_state_index.load(Relaxed) == 0;
+		send_with_state(
 			instance,
-			SetVoiceSettingsArgs {
-				deaf: Some(new_deaf),
-				..Default::default()
-			},
+			ServerCommand::SetDeafen { value: new_deaf },
 			if new_deaf { 1 } else { 0 },
 		)
 		.await
@@ -119,15 +89,7 @@ impl Action for PushToMuteAction {
 		instance: &Instance,
 		_settings: &Self::Settings,
 	) -> OpenActionResult<()> {
-		update_voice_setting(
-			instance,
-			SetVoiceSettingsArgs {
-				mute: Some(true),
-				..Default::default()
-			},
-			1,
-		)
-		.await
+		send_with_state(instance, ServerCommand::SetMute { value: true }, 1).await
 	}
 
 	async fn key_up(
@@ -135,15 +97,7 @@ impl Action for PushToMuteAction {
 		instance: &Instance,
 		_settings: &Self::Settings,
 	) -> OpenActionResult<()> {
-		update_voice_setting(
-			instance,
-			SetVoiceSettingsArgs {
-				mute: Some(false),
-				..Default::default()
-			},
-			0,
-		)
-		.await
+		send_with_state(instance, ServerCommand::SetMute { value: false }, 0).await
 	}
 }
 
@@ -158,15 +112,7 @@ impl Action for PushToTalkAction {
 		instance: &Instance,
 		_settings: &Self::Settings,
 	) -> OpenActionResult<()> {
-		update_voice_setting(
-			instance,
-			SetVoiceSettingsArgs {
-				mute: Some(false),
-				..Default::default()
-			},
-			1,
-		)
-		.await
+		send_with_state(instance, ServerCommand::SetMute { value: false }, 1).await
 	}
 
 	async fn key_up(
@@ -174,15 +120,7 @@ impl Action for PushToTalkAction {
 		instance: &Instance,
 		_settings: &Self::Settings,
 	) -> OpenActionResult<()> {
-		update_voice_setting(
-			instance,
-			SetVoiceSettingsArgs {
-				mute: Some(true),
-				..Default::default()
-			},
-			0,
-		)
-		.await
+		send_with_state(instance, ServerCommand::SetMute { value: true }, 0).await
 	}
 }
 
@@ -198,30 +136,24 @@ impl Action for ToggleVoiceInputModeAction {
 		_settings: &Self::Settings,
 	) -> OpenActionResult<()> {
 		let mode_lock = current_voice_mode().read().await;
-		let Some(current_mode) = mode_lock.as_ref() else {
+		let Some(current_mode) = mode_lock.as_deref() else {
 			log::error!("Voice mode not yet known");
 			instance.show_alert().await?;
 			return Ok(());
 		};
 
-		let is_ptt = current_mode.mode_type == "PUSH_TO_TALK";
-		let new_type = if is_ptt {
+		let is_ptt = current_mode == "PUSH_TO_TALK";
+		let new_mode = if is_ptt {
 			"VOICE_ACTIVITY"
 		} else {
 			"PUSH_TO_TALK"
 		};
-
-		let new_mode = VoiceSettingsMode {
-			mode_type: new_type.to_owned(),
-			..*current_mode
-		};
 		drop(mode_lock);
 
-		update_voice_setting(
+		send_with_state(
 			instance,
-			SetVoiceSettingsArgs {
-				mode: Some(new_mode),
-				..Default::default()
+			ServerCommand::SetVoiceInputMode {
+				mode: new_mode.to_owned(),
 			},
 			if is_ptt { 0 } else { 1 },
 		)

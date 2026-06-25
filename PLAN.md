@@ -217,50 +217,102 @@ Feasibility reflects the **Vencord** path. "Verify in DevTools" = confirm the ex
     `Cargo.toml` package + manifest `CodePaths` binary rename is intentionally deferred to land **together**
     with T1.1 / T4.2 / T5.1 so the tree stays buildable at every step (renaming the package alone would
     desync the manifest's `oadiscord-*` binary names).
-- [ ] **T0.4 (V)** Scaffold the Equibop userplugin repo.
+- [x] **T0.4 (V)** Scaffold the Equibop userplugin repo.
   - Files: `index.tsx`, `README.md`, `LICENSE`, `PROTOCOL.md`.
   - Do: minimal `definePlugin({name:"EquibopOpenDeck",description,authors})`; README documents the build-from-
     source install (clone Equibop/Equicord → copy into `src/userplugins/equibopOpendeck/` → `pnpm i && pnpm
     build` → restart) and the no-hot-reload constraint.
   - Deps: T0.1. Accept: repo builds as a no-op plugin inside an Equibop checkout and appears in the plugin list.
+  - → done: new repo at **`/home/garrett/git/equibop-opendeck`** (branch `main`, commit `623485b`): no-op
+    `definePlugin` scaffold (`index.tsx`) with `start()`/`stop()` stubs marked `TODO(T3.1)`, build-from-source
+    `README.md` (no-hot-reload documented), **GPL-3.0-or-later** `LICENSE` (matches upstream + Vencord), and a
+    copy of `PROTOCOL.md` (this satisfies the V copy noted in T0.1). The WS client itself is Phase 3.
 
 ### Phase 1 — Rust: strip Discord-RPC, stand up the WS server  (R)
-- [ ] **T1.1 (R)** Swap dependencies.
+- [x] **T1.1 (R)** Swap dependencies.
   - Files: `Cargo.toml`. Do: remove `discord-ipc-rust`, `reqwest`; add `tokio-tungstenite`, `futures-util`;
     keep `openaction`,`serde`,`serde_json`,`tokio`,`log`,`simplelog`. Deps: T0.3. Accept: `cargo metadata` resolves.
-- [ ] **T1.2 (R)** Define protocol types.
+  - → done: removed `discord-ipc-rust` + `reqwest`; added `tokio-tungstenite = { 0.28, default-features=false,
+    features=["handshake"] }` (server only, no TLS) + `futures-util`; widened `tokio` features to add
+    `net`,`sync`,`time`. All deps were already in `Cargo.lock`/cache, so `cargo build --offline` resolves clean.
+- [x] **T1.2 (R)** Define protocol types.
   - Files: `src/protocol.rs`. Do: serde enums for all contract messages — `ServerCommand` (`#[serde(tag="type")]`,
     camelCase) and `ClientMessage`. Deps: T0.1. Accept: a unit test round-trips each example JSON from PROTOCOL.md.
-- [ ] **T1.3 (R)** WS server module.
+  - → done: `src/protocol.rs` with `ServerCommand`/`ClientMessage` (internal `type` tag, camelCase variants +
+    per-variant `rename_all` for `userId`/`deviceId`/`channelId`/`guildId`/`soundId`/`inputMode`), shared
+    `Device`/`Channel`/`Guild`/`Sound`/`Devices` structs, `#[serde(other)] Unknown` catch-all, and defaults so
+    partial `stateUpdate`s parse. **7 unit tests pass** (`cargo test`) covering tags, round-trips, defaults,
+    unknown-tolerance. Also clarified the wire encodings in `PROTOCOL.md` (guilds/soundboard nesting keys,
+    optional `selectTextChannel.guildId`, hello-priming lifecycle).
+- [x] **T1.3 (R)** WS server module.
   - Files: `src/ws_server.rs`. Do: `tokio-tungstenite` server on `127.0.0.1:<port>`; accept loop; store the
     single active client sender in a `OnceLock<RwLock<Option<...>>>` mirroring the old `discord_client()`
     pattern; `send_command(ServerCommand) -> Result` errs when no client; on inbound `ClientMessage`, route
     `stateUpdate`→feedback, cache `devices`/`guilds`/`soundboard`. Deps: T1.1,T1.2. Accept: integration test —
     dummy client connects, `hello`↔`ready`, `send_command` delivered, disconnect clears state.
-- [ ] **T1.4 (R)** Preserve state feedback, delete RPC routing.
+  - → done: `src/ws_server.rs` — `serve(port)` accept loop; active client `mpsc::UnboundedSender` in a
+    `OnceLock<RwLock<Option<…>>>`; per-connection split into a writer task (mpsc→sink) + reader loop;
+    `send_command(ServerCommand) -> Result<(),()>` errs (and warns) when no client; on `hello` it replies
+    `ready` then primes caches (`requestState`/`requestGuilds`/`requestSoundboard`/`requestDevices`); inbound
+    messages route into `feedback`; disconnect clears the client **only if still us** (`same_channel` guard) and
+    calls `feedback::on_client_disconnected()`. NOTE: the automated dummy-client loopback test was **not** added
+    (would need the `connect` client feature/dep); covered instead by the bind smoke test + the MVP e2e (T5.3)
+    and the adversarial review workflow.
+- [x] **T1.4 (R)** Preserve state feedback, delete RPC routing.
   - Files: rename/rewrite `src/rpc_events.rs` → `src/feedback.rs`. Do: keep `apply_voice_state`/`update_action_state`/
     `visible_instances`+`set_state` logic; drive it from inbound `stateUpdate`; delete `ReturnedCommand`/
     `ReturnedEvent`/`SocketClosed`/error-4006 handling. Deps: T1.3. Accept: `apply_voice_state(mute=true,deaf=false)`
     sets ToggleMute→1, ToggleDeafen→0.
-- [ ] **T1.5 (R)** Rewrite `main.rs` wiring.
+  - → done: `src/rpc_events.rs` deleted, replaced by `src/feedback.rs`. `apply_state_update(mute,deaf,inputMode,
+    video,screenshare,channelId)` drives ToggleMute (`mute||deaf`), ToggleDeafen, ToggleVoiceInputMode (+stores
+    the mode string), ToggleVideo, ToggleScreenshare button states and the voice-channel cache; `apply_devices`/
+    `apply_guilds`/`apply_soundboard`/`apply_notification` repopulate caches + PIs; `on_client_disconnected`
+    clears all client-specific state. New shared `src/state.rs` holds `current_voice_channel`. All RPC/4006/socket
+    handling removed.
+- [x] **T1.5 (R)** Rewrite `main.rs` wiring.
   - Files: `src/main.rs`; delete `src/oauth.rs`, `src/client.rs`. Do: replace `DiscordSettings` with
     `Settings{port:u16=6789, error:Option<String>}`; in `main`, after `register_action(...)`,
     `tokio::spawn(ws_server::serve(port))` **before** `run(...).await`; on `did_receive_global_settings` port
     change, restart the server. Deps: T1.1–T1.4. Accept: `cargo build --release`; running the binary logs
     "listening on 127.0.0.1:6789".
+  - → done: `src/main.rs` rewritten; `src/oauth.rs` + `src/client.rs` deleted. `DiscordSettings` → `Settings{
+    port:u16=6789, error:Option<String>}` with serde default 6789. `restart_server(port)` (aborts the prior
+    serve `JoinHandle`, rebinds) is called before `run(...).await`; `did_receive_global_settings` restarts the
+    server on a port change. **`cargo build --release` clean (0 warnings)**; the binary logs `Equibop bridge
+    listening on 127.0.0.1:6789` (smoke-confirmed) before openaction panics on the missing `-port` host flag.
 
 ### Phase 2 — Rust: route the 6 MVP actions through the bridge  (R)
-- [ ] **T2.1 (R)** Port the 4 voice-settings actions.
+- [x] **T2.1 (R)** Port the 4 voice-settings actions.
   - Files: `src/actions/voice_settings.rs`. Do: replace `emit_command(SetVoiceSettings…)` with
     `ws_server::send_command(...)` — ToggleMute.key_up→`SetMute{!current}`; ToggleDeafen→`SetDeafen`;
     PushToMute down/up→`SetMute{true}`/`{false}`; PushToTalk down/up→`SetMute{false}`/`{true}`. Keep optimistic
     `set_state` on ok, `show_alert` on no-client. Keep UUIDs (rename in T7). Deps: T1.5. Accept: each handler
     sends the right variant (send-capture test); `cargo build`.
-- [ ] **T2.2 (R)** Port Voice Channel + Text Channel actions.
+  - → done: `src/actions/voice_settings.rs` — `send_with_state(instance, cmd, next_state)` replaces
+    `update_voice_setting`; ToggleMute/ToggleDeafen send `SetMute`/`SetDeafen{!current}`, PushToMute/PushToTalk
+    send absolute `SetMute{true/false}` on down/up, ToggleVoiceInputMode sends `SetVoiceInputMode{mode}` (reads
+    the cached mode string). Optimistic `set_state` on ok, `show_alert` on no-client. UUIDs unchanged.
+- [x] **T2.2 (R)** Port Voice Channel + Text Channel actions.
   - Files: `src/actions/channel.rs`, the `selectchannel` PI. Do: VoiceChannel→`SelectVoiceChannel{channelId|null}`
     (toggle join/leave via cached `channelId` from `stateUpdate`); TextChannel→`SelectTextChannel{guildId,channelId}`.
     PI populates its guild/channel pickers from cached `guilds` (request via `requestGuilds`). Deps: T1.5.
     Accept: pressing the buttons emits the right commands; PI lists guilds/channels.
+  - → done (Rust side): `src/actions/channel.rs` — VoiceChannel join/leave toggles via `current_voice_channel`
+    and sends `SelectVoiceChannel{channelId|null}`; TextChannel sends `SelectTextChannel{guildId,channelId}`.
+    The per-guild `GetChannels` round-trip + `request_channels`/`ChannelKind` machinery was **removed**: the
+    `guilds` event now carries nested `voice`/`text` channel lists (`CachedGuild` extended), so the PI filters
+    locally. **PI Svelte side is NOT yet reworked** to read nested channels — that is **T4.1** (the channel PI
+    will not populate until then; intended deferral, not the MVP gate).
+  - → NOTE (early Tier-2/3 R-port): removing `discord-ipc-rust` forced **all 14** action handlers off the old
+    Discord types, so the Rust side of the Tier-2/3 actions was ported now too (they send their protocol command
+    via `send_command`): Volume (`setInputVolume`/`setOutputVolume`, dial), Set Audio Device (`setInput/OutputDevice`,
+    validates against cached `devices`), Soundboard (`playSoundboard`), Video (`toggleVideo`), Screen Share
+    (`toggleScreenShare`), Notifications (`selectTextChannel{guildId:null}`), User Volume (`setUserVolume`). Their
+    **V-side handlers remain the Phase 6/7 gates.** Two protocol gaps surfaced for **T6.3**: (a) there is no
+    `setUserMute` command yet (per-user Mute currently `show_alert`s with a `TODO(T6.3)`), and (b) no inbound
+    message feeds `user_voice_settings_map`, so the User Volume PI user list is empty and relative user-volume
+    alerts until that message is added. The perceptual `to_linear`/`to_discord` volume math was intentionally
+    dropped (the client now speaks Discord's native 0–100 / 0–200 scale).
 
 ### Phase 3 — Vencord userplugin: WS client + MVP handlers  (V)
 - [ ] **T3.1 (V)** WS client lifecycle.
@@ -416,3 +468,12 @@ Feasibility reflects the **Vencord** path. "Verify in DevTools" = confirm the ex
 - _session 1 (Phase 0)_ — `main` fast-forwarded to v0.5.0 baseline; branch `equibop-port` created;
   `PROTOCOL.md` (v1) + `PLAN.md` added to the repo. T0.1, T0.2 done; T0.3 baseline done (rename deferred).
   Next up: T0.4 (scaffold the Equibop userplugin repo) and Phase 1 (Rust WS-server refactor).
+- _session 2 (T0.4 + Phases 1–2)_ — **R side fully refactored off Discord-RPC onto the WS bridge and builds
+  clean (release, 0 warnings; 7 protocol tests pass).** New modules `protocol.rs`/`ws_server.rs`/`feedback.rs`/
+  `state.rs`; `oauth.rs`/`client.rs`/`rpc_events.rs` deleted; `Cargo.toml` deps swapped. **All 14** action
+  handlers now route through `send_command` (MVP 6 + the Tier-2/3 Rust side ported early so the tree compiles).
+  `PROTOCOL.md` wire encodings clarified. T0.4 scaffolded the **`equibop-opendeck`** repo. Done this session:
+  T0.4, T1.1–T1.5, T2.1–T2.2. An adversarial review workflow vetted the refactor (see notes). Still pending:
+  **T0.3 rename** (manual), **T4.x PI rework** (the channel/settings Svelte PI still references the old
+  clientId/secret + per-guild channel request), and the **V-side handlers** (Phase 3 onward). Next up: Phase 3
+  (userplugin WS client) and/or Phase 4 (Rust PI rework).

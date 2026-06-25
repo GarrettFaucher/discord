@@ -10,9 +10,10 @@ the same change.
 - **Every message has a `type` field.** Unknown `type`s **must be ignored** (forward-compatibility).
 - **Connection lifecycle:**
   1. On connect, the **client** sends `hello`.
-  2. The **server** replies `ready`.
-  3. The **client** immediately sends a full `stateUpdate` (and, when later asked via `request*`, the
-     matching `devices` / `guilds` / `soundboard` event).
+  2. The **server** replies `ready`, then immediately primes its caches by sending `requestState`,
+     `requestGuilds`, `requestSoundboard` and `requestDevices`.
+  3. The **client** responds to each `request*` with the matching event (`stateUpdate` / `guilds` /
+     `soundboard` / `devices`). It also pushes an unsolicited `stateUpdate` whenever state changes.
   4. On client disconnect, the **server** treats itself as "no client connected" — action handlers then
      call `show_alert()`.
   5. The **client** auto-reconnects with backoff (~5s) on close/error.
@@ -24,8 +25,8 @@ the same change.
 | `hello` | `client` (string), `version` (number) | client announced itself |
 | `stateUpdate` | `mute` (bool), `deaf` (bool), `inputMode` (`"PUSH_TO_TALK"` \| `"VOICE_ACTIVITY"`), `video` (bool), `screenshare` (bool), `channelId` (string \| null) | full self voice/video state for button feedback |
 | `devices` | `input` (`[{id,name}]`), `output` (`[{id,name}]`), `currentInput` (string), `currentOutput` (string), `inputVolume` (0–100), `outputVolume` (0–200) | populates Volume / Set-Audio-Device PIs |
-| `guilds` | `[{id,name,voice:[{id,name}],text:[{id,name}]}]` | populates Text / Voice Channel PIs |
-| `soundboard` | `[{guildId,soundId,name,emojiName?}]` | populates Soundboard PI |
+| `guilds` | `guilds` (`[{id,name,voice:[{id,name}],text:[{id,name}]}]`) — the array is nested under a `guilds` key | populates Text / Voice Channel PIs |
+| `soundboard` | `sounds` (`[{guildId,soundId,name,emojiName?}]`) — the array is nested under a `sounds` key | populates Soundboard PI |
 | `notification` | `channelId` (string), `title?` (string), `body?` (string) | a Discord notification arrived |
 
 ### Examples (V → R)
@@ -54,7 +55,7 @@ the same change.
 | `setVideo` / `toggleVideo` | `value?` (bool) | camera enable / toggle action |
 | `setScreenShare` / `toggleScreenShare` | `value?` (bool) | Go Live start/stop (**hard — see PLAN risks**) |
 | `selectVoiceChannel` | `channelId` (string \| null) | `selectVoiceChannel(channelId)` |
-| `selectTextChannel` | `guildId` (string), `channelId` (string) | navigate / transition to channel |
+| `selectTextChannel` | `channelId` (string), `guildId` (string, **optional** — omitted for notifications; the client resolves the guild from the channel via `ChannelStore`) | navigate / transition to channel |
 | `playSoundboard` | `guildId` (string), `soundId` (string) | soundboard play action |
 
 ### Examples (R → V)

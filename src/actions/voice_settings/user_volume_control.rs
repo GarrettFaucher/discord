@@ -1,9 +1,8 @@
-use super::audio_device_utils::AudioDeviceType;
+use super::audio_device_utils::{AudioDeviceType, user_voice_settings_map};
 
-use crate::actions::audio_device_utils::user_voice_settings_map;
-use crate::client::discord_client;
+use crate::protocol::ServerCommand;
+use crate::ws_server::send_command;
 
-use discord_ipc_rust::models::send::commands::{SentCommand, SetUserVoiceSettingsArgs};
 use openaction::{Action, ActionUuid, Instance, OpenActionResult, async_trait};
 use serde::{Deserialize, Serialize};
 
@@ -36,35 +35,13 @@ impl Default for UserVolumeControlSettings {
 	}
 }
 
-async fn update_user_voice_settings(
-	instance: &Instance,
-	args: SetUserVoiceSettingsArgs,
-) -> OpenActionResult<()> {
-	let mut client_lock = discord_client().write().await;
-	let Some(client) = client_lock.as_mut() else {
-		log::error!("Discord client not initialized");
-		instance.show_alert().await?;
-		return Ok(());
-	};
-
-	if let Err(e) = client
-		.emit_command(&SentCommand::SetUserVoiceSettings(args))
-		.await
-	{
-		log::error!("Failed to update user voice settings: {}", e);
-		instance.show_alert().await?;
-	}
-
-	Ok(())
-}
-
 async fn adjust_user_volume(
 	instance: &Instance,
 	user_id: String,
 	value: f32,
 	set: bool,
 ) -> OpenActionResult<()> {
-	let device_type = AudioDeviceType::Output;
+	let max_volume = AudioDeviceType::Output.max_volume();
 
 	let current_volume = match user_voice_settings_map().read().await.get(&user_id) {
 		Some(settings) => settings.volume,
@@ -78,26 +55,23 @@ async fn adjust_user_volume(
 		}
 	};
 
-	let new_volume = if set {
-		value.clamp(0.0, device_type.max_volume())
-	} else {
-		(device_type.to_linear(current_volume) + value).clamp(0.0, device_type.max_volume())
-	};
+	let new_volume = if set { value } else { current_volume + value }.clamp(0.0, max_volume);
 
 	if new_volume == current_volume {
 		return Ok(());
 	}
 
-	update_user_voice_settings(
-		instance,
-		SetUserVoiceSettingsArgs {
-			user_id,
-			pan: None,
-			volume: Some(device_type.to_discord(new_volume)),
-			mute: None,
-		},
-	)
+	if send_command(ServerCommand::SetUserVolume {
+		user_id,
+		value: new_volume,
+	})
 	.await
+	.is_err()
+	{
+		instance.show_alert().await?;
+	}
+
+	Ok(())
 }
 
 async fn send_users_to_pi(instance: &Instance) -> OpenActionResult<()> {
@@ -128,6 +102,7 @@ async fn send_users_to_pi(instance: &Instance) -> OpenActionResult<()> {
 
 	Ok(())
 }
+
 pub struct UserVolumeControlAction;
 #[async_trait]
 impl Action for UserVolumeControlAction {
@@ -158,28 +133,11 @@ impl Action for UserVolumeControlAction {
 		};
 
 		if matches!(settings.action_type, UserVolumeControlActionType::Mute) {
-			let new_mute_state = match user_voice_settings_map().read().await.get(user_id) {
-				Some(settings) => !settings.mute,
-				None => {
-					log::error!(
-						"Failed to toggle mute for user '{}': user not found in voice settings map",
-						user_id
-					);
-					instance.show_alert().await?;
-					return Ok(());
-				}
-			};
-
-			return update_user_voice_settings(
-				instance,
-				SetUserVoiceSettingsArgs {
-					user_id: user_id.clone(),
-					pan: None,
-					volume: None,
-					mute: Some(new_mute_state),
-				},
-			)
-			.await;
+			// TODO(T6.3): the bridge protocol has no per-user mute command yet. Surface an alert
+			// until `setUserMute` is added alongside the userplugin handler.
+			log::warn!("Per-user mute is not yet supported over the Equibop bridge");
+			instance.show_alert().await?;
+			return Ok(());
 		}
 
 		let value = match settings.action_type {

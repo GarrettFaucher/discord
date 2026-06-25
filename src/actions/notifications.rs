@@ -1,7 +1,7 @@
 use crate::cache::notification_cache;
-use crate::client::discord_client;
+use crate::protocol::ServerCommand;
+use crate::ws_server::send_command;
 
-use discord_ipc_rust::models::send::commands::{SelectTextChannelArgs, SentCommand};
 use openaction::{Action, ActionUuid, Instance, OpenActionResult, async_trait};
 use serde::{Deserialize, Serialize};
 
@@ -80,21 +80,14 @@ impl Action for NotificationsAction {
 
 		update_title(instance).await?;
 
-		let mut client_lock = discord_client().write().await;
-		let Some(client) = client_lock.as_mut() else {
-			log::error!("Discord client not initialized");
-			instance.show_alert().await?;
-			return Ok(());
-		};
-
-		if let Err(e) = client
-			.emit_command(&SentCommand::SelectTextChannel(SelectTextChannelArgs {
-				channel_id: Some(notification.channel_id),
-				timeout: None,
-			}))
-			.await
+		// The client resolves the guild from the channel, so `guild_id` is left unset.
+		if send_command(ServerCommand::SelectTextChannel {
+			guild_id: None,
+			channel_id: notification.channel_id,
+		})
+		.await
+		.is_err()
 		{
-			log::error!("Failed to select text channel: {}", e);
 			instance.show_alert().await?;
 		}
 

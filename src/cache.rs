@@ -1,21 +1,20 @@
-use crate::client::discord_client;
+use crate::protocol::{Channel, Guild, ServerCommand, Sound};
+use crate::ws_server::send_command;
 
 use std::collections::VecDeque;
 use std::sync::OnceLock;
 
-use discord_ipc_rust::models::{
-	receive::events::NotificationCreateData,
-	send::commands::{PlaySoundboardSoundArgs, SentCommand},
-	shared::{Guild, voice::SoundboardSound},
-};
 use openaction::{Instance, OpenActionResult};
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
+// A guild with its selectable voice/text channels, as sent to the property inspector.
 #[derive(Serialize, Clone)]
 pub struct CachedGuild {
-	id: String,
-	name: String,
+	pub id: String,
+	pub name: String,
+	pub voice: Vec<Channel>,
+	pub text: Vec<Channel>,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -23,17 +22,7 @@ pub struct CachedSoundboardSound {
 	pub name: String,
 	pub guild_id: String,
 	pub sound_id: String,
-	pub emoji_id: Option<String>,
 	pub emoji_name: Option<String>,
-}
-
-impl From<CachedSoundboardSound> for PlaySoundboardSoundArgs {
-	fn from(sound: CachedSoundboardSound) -> Self {
-		Self {
-			guild_id: sound.guild_id,
-			sound_id: sound.sound_id,
-		}
-	}
 }
 
 pub fn guild_cache() -> &'static RwLock<Vec<CachedGuild>> {
@@ -56,39 +45,36 @@ pub fn notification_cache() -> &'static RwLock<VecDeque<CachedNotification>> {
 	CACHE.get_or_init(|| RwLock::new(VecDeque::new()))
 }
 
-pub async fn update_guild_cache(guilds: &[Guild]) {
+pub async fn update_guild_cache(guilds: Vec<Guild>) {
 	let mut cached: Vec<CachedGuild> = guilds
-		.iter()
+		.into_iter()
 		.map(|g| CachedGuild {
-			id: g.id.clone(),
-			name: g.name.clone(),
+			id: g.id,
+			name: g.name,
+			voice: g.voice,
+			text: g.text,
 		})
 		.collect();
 	cached.sort_by_key(|x| x.name.to_lowercase());
 	*guild_cache().write().await = cached;
 }
 
+// Ask the client to (re)send the guild list; the reply repopulates the cache.
 pub async fn refresh_guild_cache(instance: &Instance) -> OpenActionResult<()> {
-	let mut client_lock = discord_client().write().await;
-	if let Some(client) = client_lock.as_mut()
-		&& let Err(e) = client.emit_command(&SentCommand::GetGuilds).await
-	{
-		log::error!("Failed to request guilds: {}", e);
+	if send_command(ServerCommand::RequestGuilds).await.is_err() {
 		instance.show_alert().await?;
 	}
-
 	Ok(())
 }
 
-pub async fn update_soundboard_cache(sounds: &[SoundboardSound]) {
+pub async fn update_soundboard_cache(sounds: Vec<Sound>) {
 	let mut cached: Vec<CachedSoundboardSound> = sounds
-		.iter()
+		.into_iter()
 		.map(|s| CachedSoundboardSound {
-			name: s.name.clone(),
-			guild_id: s.guild_id.clone(),
-			sound_id: s.sound_id.clone(),
-			emoji_id: s.emoji_id.clone(),
-			emoji_name: s.emoji_name.clone(),
+			name: s.name,
+			guild_id: s.guild_id,
+			sound_id: s.sound_id,
+			emoji_name: s.emoji_name,
 		})
 		.collect();
 	cached.sort_by_key(|x| x.name.to_lowercase());
@@ -96,20 +82,15 @@ pub async fn update_soundboard_cache(sounds: &[SoundboardSound]) {
 }
 
 pub async fn refresh_soundboard_cache(instance: &Instance) -> OpenActionResult<()> {
-	let mut client_lock = discord_client().write().await;
-	if let Some(client) = client_lock.as_mut()
-		&& let Err(e) = client.emit_command(&SentCommand::GetSoundboardSounds).await
-	{
-		log::error!("Failed to request soundboard sounds: {}", e);
+	if send_command(ServerCommand::RequestSoundboard).await.is_err() {
 		instance.show_alert().await?;
 	}
-
 	Ok(())
 }
 
-pub async fn add_notification_to_cache(notification: NotificationCreateData) {
-	let mut cache_lock = notification_cache().write().await;
-	cache_lock.push_back(CachedNotification {
-		channel_id: notification.channel_id,
-	});
+pub async fn add_notification_to_cache(channel_id: String) {
+	notification_cache()
+		.write()
+		.await
+		.push_back(CachedNotification { channel_id });
 }

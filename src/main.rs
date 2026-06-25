@@ -1,11 +1,11 @@
 mod actions;
 mod cache;
-mod client;
-mod oauth;
-mod rpc_events;
+mod feedback;
+mod protocol;
+mod state;
+mod ws_server;
 
 use actions::*;
-use client::schedule_reconnect;
 
 use std::sync::OnceLock;
 
@@ -14,24 +14,52 @@ use openaction::{
 };
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
+use tokio::task::JoinHandle;
 
-// Represents the persisted Discord configuration the Stream Deck host sends us.
-#[derive(Serialize, Deserialize, Clone, Default)]
+const DEFAULT_PORT: u16 = 6789;
+
+fn default_port() -> u16 {
+	DEFAULT_PORT
+}
+
+// Persisted plugin configuration. The only user-facing setting is the bridge port; `error`
+// surfaces bind/connection problems in the property inspector.
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(default)]
-pub struct DiscordSettings {
-	#[serde(rename = "clientId")]
-	pub client_id: String,
-	#[serde(rename = "clientSecret")]
-	pub client_secret: String,
-	#[serde(rename = "accessToken")]
-	pub access_token: String,
+pub struct Settings {
+	#[serde(default = "default_port")]
+	pub port: u16,
 	pub error: Option<String>,
 }
 
-// Global storage for the last-applied settings so every module can read/write them.
-pub fn current_settings() -> &'static RwLock<DiscordSettings> {
-	static SETTINGS: OnceLock<RwLock<DiscordSettings>> = OnceLock::new();
-	SETTINGS.get_or_init(|| RwLock::new(DiscordSettings::default()))
+impl Default for Settings {
+	fn default() -> Self {
+		Self {
+			port: DEFAULT_PORT,
+			error: None,
+		}
+	}
+}
+
+// Global storage for the last-applied settings so every module can read them.
+pub fn current_settings() -> &'static RwLock<Settings> {
+	static SETTINGS: OnceLock<RwLock<Settings>> = OnceLock::new();
+	SETTINGS.get_or_init(|| RwLock::new(Settings::default()))
+}
+
+// Handle to the running bridge server task, so a port change can restart it.
+fn server_handle() -> &'static RwLock<Option<JoinHandle<()>>> {
+	static HANDLE: OnceLock<RwLock<Option<JoinHandle<()>>>> = OnceLock::new();
+	HANDLE.get_or_init(|| RwLock::new(None))
+}
+
+// (Re)bind the bridge server on the given port, aborting any previous instance.
+async fn restart_server(port: u16) {
+	let mut handle = server_handle().write().await;
+	if let Some(old) = handle.take() {
+		old.abort();
+	}
+	*handle = Some(tokio::spawn(ws_server::serve(port)));
 }
 
 // Handles global setting updates pushed from the Stream Deck host.
@@ -46,26 +74,17 @@ impl global_events::GlobalEventHandler for GlobalEventHandler {
 		&self,
 		event: global_events::DidReceiveGlobalSettingsEvent,
 	) -> OpenActionResult<()> {
-		let settings: DiscordSettings =
+		let settings: Settings =
 			serde_json::from_value(event.payload.settings).unwrap_or_default();
 
-		// Only react when the stored settings actually changed so we can avoid reconnect churn.
-		let current = current_settings().read().await;
-		let settings_changed = current.client_id != settings.client_id
-			|| current.client_secret != settings.client_secret
-			|| current.access_token != settings.access_token
-			|| current.client_id.is_empty()
-			|| current.client_secret.is_empty()
-			|| current.access_token.is_empty();
-		drop(current);
+		let old_port = current_settings().read().await.port;
+		let port_changed = settings.port != old_port;
 
-		if settings_changed {
-			log::info!("Global settings changed, reinitializing Discord client");
+		*current_settings().write().await = settings.clone();
 
-			// Persist the new configuration before attempting to reconnect.
-			*current_settings().write().await = settings;
-
-			schedule_reconnect();
+		if port_changed {
+			log::info!("Bridge port changed to {}, restarting server", settings.port);
+			restart_server(settings.port).await;
 		}
 
 		Ok(())
@@ -101,6 +120,10 @@ async fn main() -> OpenActionResult<()> {
 	register_action(VoiceChannelAction).await;
 	register_action(SoundboardAction).await;
 	register_action(NotificationsAction).await;
+
+	// Start the bridge on the default port before handing control to the OpenDeck event loop;
+	// a different stored port arrives via `did_receive_global_settings` and restarts it.
+	restart_server(current_settings().read().await.port).await;
 
 	run(std::env::args().collect()).await
 }

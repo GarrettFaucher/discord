@@ -1,7 +1,8 @@
-use super::audio_device_utils::{AudioDeviceType, AudioDeviceWrapper, get_audio_device_settings};
-use super::update_voice_setting;
+use super::audio_device_utils::{AudioDeviceType, get_audio_device_settings};
+use super::send_with_state;
 
-use discord_ipc_rust::models::shared::voice::VoiceAvailableDevice;
+use crate::protocol::{Device, ServerCommand};
+
 use openaction::{Action, ActionUuid, Instance, OpenActionResult, async_trait};
 use serde::{Deserialize, Serialize};
 
@@ -60,26 +61,24 @@ async fn update_device(
 		return Ok(());
 	}
 
-	let updated_settings = AudioDeviceWrapper {
-		device_id,
-		..current
+	let command = match device_type {
+		AudioDeviceType::Input => ServerCommand::SetInputDevice { device_id },
+		AudioDeviceType::Output => ServerCommand::SetOutputDevice { device_id },
 	};
 
-	update_voice_setting(instance, updated_settings.into(), 0).await
+	send_with_state(instance, command, 0).await
 }
 
 pub async fn send_available_devices_to_pi(instance: &Instance) -> OpenActionResult<()> {
 	#[derive(Serialize)]
 	struct Payload {
-		input_devices: Vec<VoiceAvailableDevice>,
-		output_devices: Vec<VoiceAvailableDevice>,
+		input_devices: Vec<Device>,
+		output_devices: Vec<Device>,
 		selected_input_device: String,
 		selected_output_device: String,
 	}
 
-	async fn fetch_device_list(
-		device_type: &AudioDeviceType,
-	) -> (String, Vec<VoiceAvailableDevice>) {
+	async fn fetch_device_list(device_type: &AudioDeviceType) -> (String, Vec<Device>) {
 		get_audio_device_settings(device_type)
 			.await
 			.map(|s| (s.device_id, s.available_devices))

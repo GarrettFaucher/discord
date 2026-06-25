@@ -1,5 +1,7 @@
-use super::audio_device_utils::{AudioDeviceType, AudioDeviceWrapper, get_audio_device_settings};
-use super::update_voice_setting;
+use super::audio_device_utils::{AudioDeviceType, get_audio_device_settings};
+use super::send_with_state;
+
+use crate::protocol::ServerCommand;
 
 use openaction::{Action, ActionUuid, Instance, OpenActionResult, async_trait};
 use serde::{Deserialize, Serialize};
@@ -47,20 +49,19 @@ async fn adjust_volume(
 		return Ok(());
 	};
 
-	let current_linear = device_type.to_linear(device_settings.volume);
-	let new_linear =
-		if set { value } else { current_linear + value }.clamp(0.0, device_type.max_volume());
+	let current = device_settings.volume;
+	let new_volume = if set { value } else { current + value }.clamp(0.0, device_type.max_volume());
 
-	if new_linear == current_linear {
+	if new_volume == current {
 		return Ok(());
 	}
 
-	let updated_settings = AudioDeviceWrapper {
-		volume: device_type.to_discord(new_linear),
-		..device_settings
+	let command = match device_type {
+		AudioDeviceType::Input => ServerCommand::SetInputVolume { value: new_volume },
+		AudioDeviceType::Output => ServerCommand::SetOutputVolume { value: new_volume },
 	};
 
-	update_voice_setting(instance, updated_settings.into(), 0).await
+	send_with_state(instance, command, 0).await
 }
 
 pub struct VolumeControlAction;
