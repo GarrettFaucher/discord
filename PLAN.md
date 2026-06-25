@@ -508,8 +508,37 @@ Feasibility reflects the **Vencord** path. "Verify in DevTools" = confirm the ex
     to a normal share; `bytesSent:0` only because no viewer). Other facts pinned: Discord's web `getDesktopSources`
     throws "Can't get desktop sources outside of native app"; Equibop must run **Wayland ozone** (`equibop --wayland` /
     `~/.config/equibop-flags.conf`) or capture is black via XWayland. Plugin now does startStream → acquire → setDesktopInput
-    and releases the capture on stop. **OPEN:** whether a deck-triggered (WS, no renderer user-gesture) `getDisplayMedia`
-    is allowed — relying on Equibop's `setDisplayMediaRequestHandler` relaxing transient-activation; confirm on live button.
+    and releases the capture on stop. ~~OPEN: WS-triggered (no gesture) `getDisplayMedia`~~ — **RESOLVED:** the deck
+    button works end-to-end with the OS picker (user: "Working end to end with the screen picker from the button"),
+    confirming Equibop's `setDisplayMediaRequestHandler` services the WS-triggered capture without a renderer gesture.
+  - → **NO-PICKER RESEARCH + CAPTURE-REUSE (V `f17542c`, session 5).** User asked: skip the picker, auto-stream the
+    current focused window (so they can press-while-gaming to insta-stream). **Verdict: on native Wayland this is
+    fundamentally impossible** and NOT an Equibop/Electron limitation we can patch. Established by (a) decompiling the
+    installed Equibop asar (`/usr/lib/equibop/app.asar` → `dist/js/main.js`): the display-media handler `zT` registers
+    `session.setDisplayMediaRequestHandler` and on Linux+Wayland (`Ll = linux && (XDG_SESSION_TYPE==wayland || WAYLAND_DISPLAY)`,
+    true here) calls `desktopCapturer.getSources({types:["window","screen"]})` — **that getSources call IS what fires the
+    KDE portal**; Equibop's `skipPicker:true` only skips its OWN React modal, not the OS portal. No `useSystemPicker`
+    (macOS-15+ only anyway) and no restore-token strings in the bundle. (b) A 4-agent research workflow (Electron 40 /
+    KDE 6.7): the xdg-desktop-portal ScreenCast dialog ALWAYS prompts for the first selection of any source by security
+    design; restore tokens (`persist_mode`) only skip the *repeat* prompt for the *same* source (the opposite of
+    follow-focus), Discord doesn't reuse them, and KDE Plasma 6's "Remember" checkbox is widely reported unreliable.
+    No Vesktop/Equibop/Vencord feature does no-picker auto-select (Vencord plugin-request #712 for exactly this was never
+    implemented). The legacy `getUserMedia({mandatory:{chromeMediaSource:"desktop",chromeMediaSourceId:"window:<XID>:0"}})`
+    no-picker path works ONLY under X11/XWayland ozone (and only for X11/XWayland surfaces — native-Wayland windows
+    capture black) — **user explicitly rejected leaving native Wayland**, so X11 is off the table. Discord's
+    `RunningGameStore.getVisibleGame()`/overlay (the "what the overlay attaches to" signal the user suggested) is the
+    Windows-only native-overlay path and isn't reliably populated on Linux/Equibop; even if it were, knowing the window
+    doesn't bypass the portal. **Implemented the one achievable win — skip the REPEAT prompt:** `sessionCapture` caches
+    the `desktopInputPool` wrapper for the whole Equibop session and `attachScreenCapture` re-binds it via
+    `setDesktopInput` on every Go Live after the first, never re-calling `acquire`/`getDisplayMedia`, so the portal only
+    prompts once. `captureIsLive()` (video-track `readyState==="live"`) gates reuse vs re-acquire; a `track "ended"`
+    handler clears the cache when the source is closed/revoked → next press re-prompts (the user's "if no available
+    assumed window, use the picker"). `stopScreenShare` keeps the capture alive (no release); `releaseCapture` runs on
+    plugin `stop()`. Net UX: **pick game/monitor once per session → every later press is instant + dialog-free**;
+    whatever the user picks in that one portal (window OR screen) becomes the reused source. Trade-off: the OS "now
+    sharing" indicator stays on between streams. Degrades gracefully to per-press picker if Discord tears the capture
+    down on stop. **OPEN:** live-confirm the reuse actually skips the 2nd portal (the capture surviving STREAM_STOP is
+    the one unverified assumption).
 - [x] **T7.4 (R)** Final rebrand/UUIDs — new UUID namespace (e.g. `com.garrettfaucher.equibop.<suffix>`) across
   `src/actions/*` and `assets/manifest.json` (`Name`,`Author`,`CodePaths`, all action UUIDs); swap icons if
   desired. Deps: parity actions done. Accept: manifest UUIDs match Rust; plugin loads under the new identity.
