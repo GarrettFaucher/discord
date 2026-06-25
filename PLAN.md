@@ -492,6 +492,24 @@ Feasibility reflects the **Vencord** path. "Verify in DevTools" = confirm the ex
     "share the active screen." Removed `enumerateSources`/`getDesktopSources`/`IS_WINDOWS`/`getMediaEngine`; kept the
     R1/R3 reconcile+debounce hardening. Build-verified (`pnpm build` green). **Supersedes the session-4 "one OS-dialog
     confirmation is the ceiling" conclusion** — the dialog was never the blocker; the throwing enumerator was.
+  - → **BLACK-SCREEN ROOT CAUSE + REAL FIX (V `55a6e94`, session 4 cont — reverse-engineered Discord's web bundle,
+    verified live).** After the enumerator fix the button went *live* but streamed BLACK. Cause: on Equibop's WEB
+    client, Go Live is **capture-driven, not sourceId-driven** — `startStream` only does signaling; the video source
+    must be a `getDisplayMedia` MediaStream that Discord binds into `connection.input.stream`, and there is NO public
+    setter to inject a self-captured track (proved `replaceTrack` onto the WebRTC sender yields `no outbound-rtp` — the
+    engine gates encoding on its own capture state). Fetched + grepped the live Discord bundle
+    (`discord.com/assets/web.<hash>.js`) to find the genuine web path and confirmed each call against the user's runtime
+    via DevTools introspection: **(1)** `startStream` → go-live connection; **(2)**
+    `MediaEngineStore.getMediaEngine().desktopInputPool.acquire({width,height}, audio)` → calls `navigator.getDisplayMedia`
+    (Equibop's main-process `setDisplayMediaRequestHandler` pops the KDE portal on Wayland) → a capture wrapper; **(3)**
+    `connection.setDesktopInput(capture)` on the go-live connection (`streamUserId===userId`) — exactly Discord's own
+    `MEDIA_ENGINE_SET_GO_LIVE_SOURCE` handler (`i=desktopInputPool.get(id); eachConnection(...).setDesktopInput(i)`).
+    Live result: **frames flowing** (`framesSent` climbing, real WxH, `EquibopStreamFixes Applied constraints` — identical
+    to a normal share; `bytesSent:0` only because no viewer). Other facts pinned: Discord's web `getDesktopSources`
+    throws "Can't get desktop sources outside of native app"; Equibop must run **Wayland ozone** (`equibop --wayland` /
+    `~/.config/equibop-flags.conf`) or capture is black via XWayland. Plugin now does startStream → acquire → setDesktopInput
+    and releases the capture on stop. **OPEN:** whether a deck-triggered (WS, no renderer user-gesture) `getDisplayMedia`
+    is allowed — relying on Equibop's `setDisplayMediaRequestHandler` relaxing transient-activation; confirm on live button.
 - [x] **T7.4 (R)** Final rebrand/UUIDs — new UUID namespace (e.g. `com.garrettfaucher.equibop.<suffix>`) across
   `src/actions/*` and `assets/manifest.json` (`Name`,`Author`,`CodePaths`, all action UUIDs); swap icons if
   desired. Deps: parity actions done. Accept: manifest UUIDs match Rust; plugin loads under the new identity.
